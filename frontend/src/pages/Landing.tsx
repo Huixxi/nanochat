@@ -839,17 +839,15 @@ export default function Landing() {
 
   return (
     <div className="fixed inset-0 bg-black flex flex-col items-center justify-center px-8 overflow-hidden z-10">
-      {/* Animated network background */}
-      <NetworkLines />
+      {/* Animated network background — only on landing, not inviter page */}
+      {!inviter && <NetworkLines />}
 
-      <AnimatePresence>
-        {inviter ? (
+      {inviter ? (
           <motion.div
-            key="inviter"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4, ease: 'easeOut' }}
-            className="flex flex-col items-center relative z-10 -mt-[8vh]"
+            className="flex flex-col items-center relative z-10 py-12 w-full"
           >
             {/* Ambient glow — behind everything */}
             <motion.div
@@ -879,7 +877,7 @@ export default function Landing() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ delay: 0.15, type: 'spring', stiffness: 200, damping: 20 }}
               >
-                <AnimatedAvatar config={inviter.avatar} size={80} emotion={inviterEmotion} gaze={inviterGaze} headTilt={inviterTilt} engaged />
+                <AnimatedAvatar config={inviter.avatar} size={64} emotion={inviterEmotion} gaze={inviterGaze} headTilt={inviterTilt} engaged />
               </motion.div>
 
               <motion.div
@@ -949,18 +947,15 @@ export default function Landing() {
               transition={{ delay: 1.0 }}
               whileTap={{ scale: 0.97 }}
               onClick={handleContinue}
-              className="mt-10 w-[240px] py-3.5 bg-white rounded-xl text-black font-medium text-sm touch-scale"
+              className="relative z-10 mt-8 w-[240px] py-3.5 bg-white rounded-xl text-black font-medium text-sm touch-scale"
             >
               创建我的身份
             </motion.button>
           </motion.div>
-        ) : (
+      ) : (
           <motion.div
-            key="landing"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ exit: { duration: 0.2 } }}
             className="flex flex-col items-center relative z-10"
           >
             {/* Live demo conversation */}
@@ -1170,8 +1165,7 @@ export default function Landing() {
               <SocialProof />
             </motion.div>
           </motion.div>
-        )}
-      </AnimatePresence>
+      )}
     </div>
   )
 }

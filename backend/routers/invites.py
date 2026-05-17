@@ -39,7 +39,6 @@ async def generate_invite(
 async def validate_invite(code: str, db: Session = Depends(get_db)):
     invitation = db.query(Invitation).filter(
         Invitation.code == code.upper(),
-        Invitation.used_by.is_(None),
     ).first()
     if not invitation:
         return {"valid": False}

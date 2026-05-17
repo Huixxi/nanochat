@@ -45,11 +45,10 @@ class GuestRequest(BaseModel):
 async def register(req: RegisterRequest, db: Session = Depends(get_db)):
     invitation = db.query(Invitation).filter(
         Invitation.code == req.invite_code.upper(),
-        Invitation.used_by.is_(None),
     ).first()
 
     if not invitation:
-        raise HTTPException(status_code=400, detail="Invalid or used invite code")
+        raise HTTPException(status_code=400, detail="邀请码无效")
 
     user_invite_code = uuid.uuid4().hex[:8].upper()
     user = User(
@@ -61,7 +60,6 @@ async def register(req: RegisterRequest, db: Session = Depends(get_db)):
     )
     db.add(user)
     db.flush()
-    invitation.used_by = user.id
 
     db.add(Invitation(code=user_invite_code, created_by=user.id))
     for _ in range(2):

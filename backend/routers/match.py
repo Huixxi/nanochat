@@ -19,7 +19,7 @@ async def get_recommendations(
         for m in db.query(CircleMember.circle_id).filter(CircleMember.user_id == user.id).all()
     }
 
-    all_peers = db.query(User).filter(User.id != user.id).limit(30).all()
+    all_peers = db.query(User).filter(User.id != user.id).limit(50).all()
 
     results = []
     for peer in all_peers:
@@ -29,6 +29,8 @@ async def get_recommendations(
         }
         shared = len(my_circles & peer_circles) if my_circles else 0
         is_trust_linked = peer.invited_by == user.id or user.invited_by == peer.id
+        if shared == 0 and not is_trust_linked:
+            continue
         score = 50 + shared * 15 + (10 if is_trust_linked else 0)
         results.append({
             "user_id": peer.id,
