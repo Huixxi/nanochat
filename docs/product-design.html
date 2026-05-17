@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NanoChat - Product Design Document</title>
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #14141f;
+            --border: #1e1e2e;
+            --text: #f0f0f5;
+            --text-secondary: #8888a0;
+            --accent: #7c5bf5;
+            --accent-light: #a78bfa;
+            --accent-glow: rgba(124, 91, 245, 0.15);
+            --success: #34d399;
+            --warning: #fbbf24;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 80px 40px;
+        }
+
+        /* Header */
+        .hero {
+            text-align: center;
+            padding: 120px 40px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero h1 {
+            font-size: 72px;
+            font-weight: 700;
+            letter-spacing: -2px;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, var(--text) 0%, var(--accent-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero .tagline {
+            font-size: 24px;
+            color: var(--text-secondary);
+            font-weight: 300;
+        }
+
+        .hero .version {
+            display: inline-block;
+            margin-top: 24px;
+            padding: 6px 16px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* Sections */
+        section {
+            margin-bottom: 100px;
+        }
+
+        h2 {
+            font-size: 36px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin-bottom: 40px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        h3 {
+            font-size: 22px;
+            font-weight: 600;
+            margin: 40px 0 16px;
+            color: var(--accent-light);
+        }
+
+        p {
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            font-size: 16px;
+        }
+
+        /* Cards */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 24px 0;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+            transition: border-color 0.3s, transform 0.3s;
+        }
+
+        .card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .card .icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+
+        .card h4 {
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        .card p {
+            font-size: 14px;
+            margin: 0;
+        }
+
+        /* Flow diagram */
+        .flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 40px 20px;
+            background: var(--surface);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            margin: 24px 0;
+        }
+
+        .flow-step {
+            padding: 10px 20px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .flow-arrow {
+            color: var(--accent);
+            font-size: 18px;
+        }
+
+        /* Question list */
+        .question-category {
+            margin: 32px 0;
+        }
+
+        .question-category h4 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--accent-light);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .question-list {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 8px;
+        }
+
+        .question-list li {
+            padding: 12px 16px;
+            background: var(--surface);
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            border-left: 3px solid var(--accent);
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 24px 0;
+        }
+
+        th, td {
+            padding: 14px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        th {
+            color: var(--accent-light);
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            color: var(--text-secondary);
+        }
+
+        /* Tags */
+        .tag {
+            display: inline-block;
+            padding: 4px 10px;
+            background: var(--accent-glow);
+            border: 1px solid var(--accent);
+            border-radius: 12px;
+            font-size: 12px;
+            color: var(--accent-light);
+            margin: 2px;
+        }
+
+        /* Highlight box */
+        .highlight {
+            background: var(--accent-glow);
+            border: 1px solid var(--accent);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+        }
+
+        .highlight h4 {
+            color: var(--accent-light);
+            margin-bottom: 8px;
+        }
+
+        /* Numbered list */
+        .numbered-list {
+            list-style: none;
+            counter-reset: item;
+        }
+
+        .numbered-list li {
+            counter-increment: item;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 15px;
+        }
+
+        .numbered-list li::before {
+            content: counter(item);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background: var(--accent);
+            color: white;
+            border-radius: 50%;
+            font-size: 13px;
+            font-weight: 600;
+            margin-right: 12px;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .container { padding: 40px 20px; }
+            .hero { padding: 80px 20px; }
+            .hero h1 { font-size: 42px; }
+            .hero .tagline { font-size: 18px; }
+            h2 { font-size: 28px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="hero">
+    <h1>NanoChat</h1>
+    <p class="tagline">发现身边有趣的人</p>
+    <span class="version">Product Design v1.0 | 2026.05</span>
+</div>
+
+<div class="container">
+
+    <!-- 产品定位 -->
+    <section>
+        <h2>产品定位</h2>
+        <p>NanoChat 不是又一个聊天工具。它是一场社交实验——让你发现，朋友的朋友中，藏着多少有趣的灵魂。</p>
+
+        <div class="highlight">
+            <h4>核心价值主张</h4>
+            <p>通过 AI 驱动的人设匹配 + 极简线条形象 + 邀请制传播，在熟人社交的安全感中，创造陌生人社交的新鲜感。</p>
+        </div>
+
+        <h3>为什么叫 NanoChat？</h3>
+        <p>WeChat 是微信，"微"已经足够小。而我们要做的是比"微"更微——Nano 级别的轻量社交。不需要通讯录，不需要朋友圈，只需要一个邀请码，30 秒创建一个你，然后开始发现。</p>
+
+        <h3>我们不是什么</h3>
+        <table>
+            <tr><th>我们不是</th><th>我们是</th></tr>
+            <tr><td>即时通讯工具（微信替代品）</td><td>基于人设的社交发现平台</td></tr>
+            <tr><td>陌生人匹配（探探/Soul）</td><td>熟人网络中的新连接</td></tr>
+            <tr><td>AI 聊天机器人（Character.ai）</td><td>AI 作为社交催化剂，不是终点</td></tr>
+            <tr><td>匿名社交（树洞）</td><td>半实名：虚拟形象，真实关系链</td></tr>
+        </table>
+    </section>
+
+    <!-- 用户旅程 -->
+    <section>
+        <h2>用户旅程</h2>
+
+        <div class="flow">
+            <span class="flow-step">收到邀请</span>
+            <span class="flow-arrow">&rarr;</span>
+            <span class="flow-step">创建角色</span>
+            <span class="flow-arrow">&rarr;</span>
+            <span class="flow-step">回答问题</span>
+            <span class="flow-arrow">&rarr;</span>
+            <span class="flow-step">发现关系</span>
+            <span class="flow-arrow">&rarr;</span>
+            <span class="flow-step">开始对话</span>
+            <span class="flow-arrow">&rarr;</span>
+            <span class="flow-step">分享内容</span>
+            <span class="flow-arrow">&rarr;</span>
+            <span class="flow-step">邀请新人</span>
+        </div>
+
+        <ol class="numbered-list">
+            <li><strong>收到邀请</strong> — 朋友在微信朋友圈分享了一张角色卡片/契合度报告，附带邀请码</li>
+            <li><strong>30 秒创建角色</strong> — 选择极简线条头像组件（发型+眼睛+嘴巴），输入昵称</li>
+            <li><strong>回答问题（可跳过）</strong> — 20 道趣味问题，每道 2 秒，系统生成你的 persona</li>
+            <li><strong>发现关系网络</strong> — 看到邀请你的人、以及通过 TA 连接的其他人，关系图谱可视化</li>
+            <li><strong>开始对话</strong> — 和真人聊、和 AI 角色聊、系统推荐"你们可能聊得来"</li>
+            <li><strong>内容沉淀</strong> — 精彩对话片段一键匿名分享到广场</li>
+            <li><strong>邀请传播</strong> — 生成你的角色卡片，分享到朋友圈，获得新邀请码</li>
+        </ol>
+    </section>
+
+    <!-- 核心功能 -->
+    <section>
+        <h2>核心功能模块</h2>
+
+        <div class="card-grid">
+            <div class="card">
+                <div class="icon">&#x1f3ad;</div>
+                <h4>角色系统</h4>
+                <p>极简线条头像 + 问答人设 = 独一无二的虚拟形象。每个用户一个 persona 文件，AI 可读可用。</p>
+            </div>
+            <div class="card">
+                <div class="icon">&#x1f578;</div>
+                <h4>关系图谱</h4>
+                <p>邀请链路可视化。一度好友、二度好友、三度好友，看见你和每个人之间的社交距离。</p>
+            </div>
+            <div class="card">
+                <div class="icon">&#x1f9e0;</div>
+                <h4>AI 匹配引擎</h4>
+                <p>基于双方人设计算契合度，推荐"你可能想聊的人"，生成破冰话题建议。</p>
+            </div>
+            <div class="card">
+                <div class="icon">&#x1f4ac;</div>
+                <h4>对话系统</h4>
+                <p>真人 1v1、群聊、AI 角色对话。统一体验，AI 有明确标识。</p>
+            </div>
+            <div class="card">
+                <div class="icon">&#x1f916;</div>
+                <h4>AI 角色</h4>
+                <p>3-5 个有鲜明人设的 AI 角色常驻，随时可聊。毒舌闺蜜、哲学大叔、猫系少女...</p>
+            </div>
+            <div class="card">
+                <div class="icon">&#x1f4f0;</div>
+                <h4>内容广场</h4>
+                <p>匿名精彩对话、每日话题、AI 社交实验。让优质内容留下来，吸引用户回访。</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 角色系统详解 -->
+    <section>
+        <h2>角色创建系统</h2>
+
+        <h3>头像组件</h3>
+        <p>基于极简线条风格，用户通过选择组件拼装自己的虚拟形象。风格介于 Apple Memoji 和简笔画之间——辨识度高，但足够抽象保护隐私。</p>
+
+        <table>
+            <tr><th>部件</th><th>选项数</th><th>说明</th></tr>
+            <tr><td>脸型</td><td>4</td><td>圆脸、方脸、瓜子脸、鹅蛋脸</td></tr>
+            <tr><td>发型</td><td>8</td><td>短发、长直、卷发、丸子头、寸头、刘海、辫子、光头</td></tr>
+            <tr><td>发色</td><td>6</td><td>黑、棕、金、红、蓝、紫（CSS 变量控制）</td></tr>
+            <tr><td>眼睛</td><td>6</td><td>圆眼、杏眼、细长眼、笑眼、星星眼、猫眼</td></tr>
+            <tr><td>嘴巴</td><td>5</td><td>微笑、抿嘴、大笑、嘟嘴、平静</td></tr>
+            <tr><td>耳朵</td><td>4</td><td>普通、精灵耳、小耳朵、带耳环</td></tr>
+            <tr><td>配饰</td><td>4</td><td>眼镜、帽子、耳机、口罩（可选）</td></tr>
+        </table>
+        <p>总组合数：4 &times; 8 &times; 6 &times; 6 &times; 5 &times; 4 &times; 5 = <strong>115,200</strong> 种独特形象</p>
+    </section>
+
+    <!-- 问答人设 -->
+    <section>
+        <h2>问答人设系统</h2>
+        <p>通过 20 道精心设计的问题，快速构建用户的虚拟人设。每道题平均 2-3 秒完成，支持跳过。答案将被结构化存储，并由 AI 生成一段自然语言人设摘要。</p>
+
+        <div class="question-category">
+            <h4>基础属性</h4>
+            <ul class="question-list">
+                <li>你的星座是？</li>
+                <li>你的 MBTI 是？（不确定可选"不知道"）</li>
+                <li>你的血型是？</li>
+                <li>你的生肖是？</li>
+            </ul>
+        </div>
+
+        <div class="question-category">
+            <h4>偏好与品味</h4>
+            <ul class="question-list">
+                <li>一部可以反复看的电影？</li>
+                <li>一本改变过你的书？</li>
+                <li>单曲循环最多的一首歌？</li>
+                <li>深夜饿了你会点什么外卖？</li>
+                <li>你最常用的 3 个 emoji？</li>
+                <li>旅行选山还是海？</li>
+            </ul>
+        </div>
+
+        <div class="question-category">
+            <h4>性格与风格</h4>
+            <ul class="question-list">
+                <li>和人争论时，你倾向妥协还是坚持？</li>
+                <li>理想的周末是怎样的？</li>
+                <li>聚会中你通常是什么角色？（话题发起者/倾听者/捧哏/摄影师）</li>
+                <li>独处充电 vs 社交充电？</li>
+            </ul>
+        </div>
+
+        <div class="question-category">
+            <h4>脑洞与想象</h4>
+            <ul class="question-list">
+                <li>去荒岛只能带三样东西，带什么？</li>
+                <li>用一个词形容你的人生？</li>
+                <li>读心术 vs 隐身术，选哪个？</li>
+                <li>世界末日你的生存策略是什么？</li>
+            </ul>
+        </div>
+
+        <div class="question-category">
+            <h4>社交习惯</h4>
+            <ul class="question-list">
+                <li>你理想的聊天时长是？（5分钟闪聊/30分钟深聊/看心情）</li>
+                <li>你的消息回复速度？（秒回/小时级/天级）</li>
+                <li>最受不了的聊天行为是？</li>
+                <li>你表达喜欢一个人的方式是？</li>
+            </ul>
+        </div>
+
+        <div class="highlight">
+            <h4>Persona 生成示例</h4>
+            <p style="font-family: monospace; font-size: 13px; white-space: pre-line;">
+{
+  "name": "星河",
+  "zodiac": "水瓶座",
+  "mbti": "INFP",
+  "summary": "一个活在自己世界里的浪漫主义者。深夜点麻辣烫，单曲循环后摇，选择隐身术是因为想安静观察世界。聚会中是那个角落里微笑的人。",
+  "chat_style": "慢热但一旦打开话匣子就收不住，喜欢发长消息，讨厌语音",
+  "compatibility_tags": ["文艺", "内向", "夜猫子", "思考者"]
+}
+            </p>
+        </div>
+    </section>
+
+    <!-- 关系图谱 -->
+    <section>
+        <h2>关系图谱</h2>
+        <p>每个用户都是一个节点，邀请关系形成边。图谱是 NanoChat 的核心资产——它让"朋友的朋友"变得可见和可触达。</p>
+
+        <h3>社交距离</h3>
+        <table>
+            <tr><th>距离</th><th>定义</th><th>体验</th></tr>
+            <tr><td><span class="tag">一度</span></td><td>直接邀请关系</td><td>可直接对话，看到完整人设</td></tr>
+            <tr><td><span class="tag">二度</span></td><td>朋友的朋友</td><td>可看到基础信息，需对方同意后对话</td></tr>
+            <tr><td><span class="tag">三度</span></td><td>朋友的朋友的朋友</td><td>只看到头像和一句话介绍，需要"搭桥"</td></tr>
+        </table>
+
+        <h3>图谱可视化</h3>
+        <p>力导向图布局，用户自己在中心，连接线的粗细代表互动频率。点击节点可查看对方的角色卡片和契合度。</p>
+    </section>
+
+    <!-- AI 匹配引擎 -->
+    <section>
+        <h2>AI 匹配引擎</h2>
+
+        <h3>契合度计算</h3>
+        <p>结合两种方法：</p>
+        <ol class="numbered-list">
+            <li><strong>向量相似度</strong> — 将问答答案转为向量，计算余弦相似度</li>
+            <li><strong>规则加权</strong> — MBTI 兼容性矩阵、星座相性、兴趣标签重合度</li>
+        </ol>
+
+        <h3>AI 能做什么</h3>
+        <div class="card-grid">
+            <div class="card">
+                <h4>生成破冰话题</h4>
+                <p>"你们都喜欢后摇，要不聊聊最近听的 Mogwai 新专？"</p>
+            </div>
+            <div class="card">
+                <h4>契合度报告</h4>
+                <p>一张可分享的双人报告卡，分析你们的性格互补点和可能的冲突点</p>
+            </div>
+            <div class="card">
+                <h4>对话助手</h4>
+                <p>冷场时 AI 悄悄建议话题方向（只有你能看到）</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- AI 角色 -->
+    <section>
+        <h2>AI 常驻角色</h2>
+        <p>3-5 个 AI 角色，每个有鲜明人设、固定形象、独特说话风格。用户可以随时和它们对话，体验 AI 社交的乐趣。与真人对话界面统一，但有明确的 AI 标识。</p>
+
+        <div class="card-grid">
+            <div class="card">
+                <div class="icon">&#x1f525;</div>
+                <h4>辛辣姐 (Spicy)</h4>
+                <p>毒舌闺蜜人设。说话直接犀利但内心温暖，擅长一针见血的建议。"你确定？我觉得你在找借口。"</p>
+            </div>
+            <div class="card">
+                <div class="icon">&#x1f4da;</div>
+                <h4>老周 (Zhou)</h4>
+                <p>哲学大叔人设。什么都能聊到形而上，但不装。"这个问题嘛，苏格拉底和你妈可能会给出一样的答案。"</p>
+            </div>
+            <div class="card">
+                <div class="icon">&#x1f431;</div>
+                <h4>咪咪 (Mimi)</h4>
+                <p>猫系少女人设。时而高冷时而粘人，回复随机延迟模拟"猫的作息"。"哼...你又来找我了...才没有在等你。"</p>
+            </div>
+            <div class="card">
+                <div class="icon">&#x1f3b5;</div>
+                <h4>Echo</h4>
+                <p>文艺青年人设。聊音乐电影书籍，偶尔写诗。说话带着淡淡的忧伤和温柔。"这首歌让我想起一个再也见不到的下午。"</p>
+            </div>
+            <div class="card">
+                <div class="icon">&#x26a1;</div>
+                <h4>Bolt</h4>
+                <p>科技极客人设。对一切新事物充满热情，说话快节奏多梗。"等等等等，你知道这个用量子计算来解释的话——好吧我又跑题了。"</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 传播机制 -->
+    <section>
+        <h2>传播机制</h2>
+
+        <h3>核心传播钩子</h3>
+        <div class="card-grid">
+            <div class="card">
+                <h4>角色卡片分享</h4>
+                <p>精美的角色形象 + 一句话人设摘要 + 邀请码。设计成适合朋友圈的 3:4 比例图片。</p>
+            </div>
+            <div class="card">
+                <h4>AI 第一印象</h4>
+                <p>"AI 觉得你是..." 生成一段有趣的第一印象描述，用户忍不住分享看看朋友怎么评价。</p>
+            </div>
+            <div class="card">
+                <h4>双人契合度</h4>
+                <p>"我和 XX 的契合度是 87%！"双人报告卡，触发被提及者的好奇心。</p>
+            </div>
+        </div>
+
+        <h3>邀请机制</h3>
+        <ol class="numbered-list">
+            <li><strong>邀请码制</strong> — 每个用户初始获得 3 个邀请码，被邀请人注册后再获得 1 个</li>
+            <li><strong>稀缺感</strong> — 邀请码数量有限，形成"被邀请"的专属感</li>
+            <li><strong>链路追踪</strong> — 记录邀请关系，构建关系图谱的基础数据</li>
+        </ol>
+    </section>
+
+    <!-- 留存机制 -->
+    <section>
+        <h2>留存机制</h2>
+
+        <table>
+            <tr><th>机制</th><th>频率</th><th>说明</th></tr>
+            <tr><td>每日话题</td><td>每天 1 个</td><td>AI 生成的趣味话题，所有人可参与讨论</td></tr>
+            <tr><td>AI 主动消息</td><td>1-2 天/次</td><td>AI 角色根据你的人设主动发起对话</td></tr>
+            <tr><td>新人加入提醒</td><td>实时</td><td>"你的朋友圈有新人加入 NanoChat"</td></tr>
+            <tr><td>契合度更新</td><td>每周</td><td>随着更多互动数据，契合度排行刷新</td></tr>
+            <tr><td>内容广场</td><td>持续更新</td><td>匿名精彩对话片段，刷到停不下来</td></tr>
+        </table>
+    </section>
+
+    <!-- 安全与隐私 -->
+    <section>
+        <h2>安全与隐私</h2>
+
+        <div class="card-grid">
+            <div class="card">
+                <h4>内容安全</h4>
+                <p>AI 对话经过内容过滤，真人对话支持关键词检测 + 举报机制。</p>
+            </div>
+            <div class="card">
+                <h4>隐私分级</h4>
+                <p>用户可控制哪些人设信息对哪个距离的人可见。核心原则：用户对自己的数据有完全控制权。</p>
+            </div>
+            <div class="card">
+                <h4>数据最小化</h4>
+                <p>只收集产品功能必需的数据。对话内容端对端加密存储，服务端不可读。</p>
+            </div>
+            <div class="card">
+                <h4>账号安全</h4>
+                <p>邀请码注册 + 手机号验证。支持注销账号和数据导出。</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 商业化预留 -->
+    <section>
+        <h2>商业化方向（预留）</h2>
+        <p>MVP 阶段不商业化，但架构预留以下可能性：</p>
+
+        <ol class="numbered-list">
+            <li><strong>高级头像组件</strong> — 付费解锁更多发型、配饰、特效（闪光、动态）</li>
+            <li><strong>VIP AI 角色</strong> — 更有深度的 AI 对话伙伴，更长的上下文记忆</li>
+            <li><strong>额外邀请码</strong> — 付费获取更多邀请额度</li>
+            <li><strong>社交增强</strong> — 查看谁看过你的主页、详细契合度分析报告</li>
+        </ol>
+    </section>
+
+    <!-- MVP 范围 -->
+    <section>
+        <h2>MVP 范围定义</h2>
+
+        <h3>MVP 包含</h3>
+        <table>
+            <tr><th>功能</th><th>优先级</th></tr>
+            <tr><td>邀请码注册</td><td><span class="tag">P0</span></td></tr>
+            <tr><td>头像创建（基础组件）</td><td><span class="tag">P0</span></td></tr>
+            <tr><td>问答人设（10题精简版）</td><td><span class="tag">P0</span></td></tr>
+            <tr><td>1v1 对话（真人）</td><td><span class="tag">P0</span></td></tr>
+            <tr><td>AI 角色对话（2个角色）</td><td><span class="tag">P0</span></td></tr>
+            <tr><td>关系图谱（基础版）</td><td><span class="tag">P1</span></td></tr>
+            <tr><td>契合度计算</td><td><span class="tag">P1</span></td></tr>
+            <tr><td>角色卡片分享</td><td><span class="tag">P1</span></td></tr>
+        </table>
+
+        <h3>MVP 不包含（后续迭代）</h3>
+        <table>
+            <tr><th>功能</th><th>计划版本</th></tr>
+            <tr><td>群聊</td><td>v1.1</td></tr>
+            <tr><td>内容广场</td><td>v1.1</td></tr>
+            <tr><td>AI 主动消息</td><td>v1.2</td></tr>
+            <tr><td>每日话题</td><td>v1.2</td></tr>
+            <tr><td>端对端加密</td><td>v2.0</td></tr>
+            <tr><td>微信小程序</td><td>v2.0</td></tr>
+        </table>
+    </section>
+
+</div>
+
+</body>
+</html>

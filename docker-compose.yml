@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///./data/nanochat.db}
+      - AI_PROVIDER=${AI_PROVIDER:-openai}
+      - AI_API_KEY=${AI_API_KEY}
+      - AI_API_BASE=${AI_API_BASE:-https://api.deepseek.com/v1}
+      - AI_MODEL_CLOUD=${AI_MODEL_CLOUD:-deepseek-chat}
+      - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
+      - AI_MODEL=${AI_MODEL:-qwen2.5:7b}
+      - JWT_SECRET=${JWT_SECRET:-nanochat-dev-secret-change-me}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+    depends_on:
+      - redis
+    volumes:
+      - backend_data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+volumes:
+  backend_data:

@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NanoChat - UI Prototype</title>
+    <style>
+        :root {
+            --bg: #09090b;
+            --surface: #111113;
+            --surface-2: #18181b;
+            --border: #27272a;
+            --text: #fafafa;
+            --text-secondary: #71717a;
+            --accent: #8b5cf6;
+            --accent-light: #a78bfa;
+            --accent-glow: rgba(139, 92, 246, 0.12);
+            --radius: 16px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        /* Phone Frame */
+        .phone-frame {
+            width: 375px;
+            height: 812px;
+            margin: 40px auto;
+            border-radius: 44px;
+            border: 3px solid var(--border);
+            overflow: hidden;
+            position: relative;
+            background: var(--bg);
+            box-shadow: 0 50px 100px rgba(0,0,0,0.5);
+        }
+
+        .status-bar {
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 28px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .screen {
+            height: calc(100% - 44px);
+            overflow-y: auto;
+            padding-bottom: 80px;
+        }
+
+        .screen::-webkit-scrollbar { display: none; }
+
+        /* Navigation */
+        .nav-tabs {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 80px;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            padding-bottom: 16px;
+        }
+
+        .nav-tab {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .nav-tab.active { color: var(--accent-light); }
+
+        .nav-tab svg {
+            width: 24px;
+            height: 24px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.5;
+        }
+
+        /* Page Selector */
+        .page-selector {
+            text-align: center;
+            padding: 30px 20px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .page-selector h1 {
+            font-size: 20px;
+            margin-bottom: 16px;
+            color: var(--text-secondary);
+        }
+
+        .page-btns {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .page-btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            background: var(--surface-2);
+            color: var(--text-secondary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .page-btn:hover, .page-btn.active {
+            border-color: var(--accent);
+            color: var(--accent-light);
+            background: var(--accent-glow);
+        }
+
+        /* ===== PAGE: Landing ===== */
+        .landing-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100%;
+            padding: 60px 32px;
+            text-align: center;
+        }
+
+        .landing-logo {
+            font-size: 48px;
+            font-weight: 700;
+            letter-spacing: -2px;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #fff 30%, var(--accent-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .landing-tagline {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-bottom: 48px;
+        }
+
+        .invite-input-group {
+            width: 100%;
+            max-width: 280px;
+        }
+
+        .invite-input {
+            width: 100%;
+            padding: 16px 20px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text);
+            font-size: 16px;
+            text-align: center;
+            letter-spacing: 4px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .invite-input:focus {
+            border-color: var(--accent);
+        }
+
+        .invite-input::placeholder {
+            letter-spacing: 0;
+            color: var(--text-secondary);
+        }
+
+        .btn-primary {
+            width: 100%;
+            max-width: 280px;
+            padding: 16px;
+            margin-top: 16px;
+            background: var(--accent);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-primary:active { transform: scale(0.98); }
+
+        .landing-footer {
+            margin-top: 48px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* ===== PAGE: Avatar Creation ===== */
+        .avatar-page {
+            padding: 24px 20px;
+        }
+
+        .avatar-page h2 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .avatar-page .step-indicator {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+
+        .avatar-preview {
+            width: 160px;
+            height: 160px;
+            margin: 0 auto 32px;
+            border-radius: 50%;
+            background: var(--surface-2);
+            border: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .avatar-preview svg {
+            width: 120px;
+            height: 120px;
+        }
+
+        .component-section {
+            margin-bottom: 24px;
+        }
+
+        .component-section label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .component-options {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 4px 0;
+        }
+
+        .component-options::-webkit-scrollbar { display: none; }
+
+        .component-option {
+            min-width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            border: 2px solid var(--border);
+            background: var(--surface-2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .component-option:hover { border-color: var(--text-secondary); }
+        .component-option.selected { border-color: var(--accent); background: var(--accent-glow); }
+
+        .color-dot {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+        }
+
+        /* ===== PAGE: Discover/Home ===== */
+        .discover-page {
+            padding: 20px;
+        }
+
+        .discover-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .discover-header h2 {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .discover-header .avatar-small {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--accent-glow);
+            border: 2px solid var(--accent);
+        }
+
+        .graph-placeholder {
+            width: 100%;
+            height: 200px;
+            border-radius: var(--radius);
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .graph-placeholder::after {
+            content: '';
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            opacity: 0.5;
+        }
+
+        .graph-node {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .graph-node.me { background: var(--accent); left: 50%; top: 50%; transform: translate(-50%, -50%); }
+        .graph-node.n1 { background: var(--surface); border: 2px solid var(--accent-light); left: 30%; top: 30%; }
+        .graph-node.n2 { background: var(--surface); border: 2px solid var(--accent-light); left: 70%; top: 35%; }
+        .graph-node.n3 { background: var(--surface); border: 2px solid var(--border); left: 20%; top: 65%; }
+        .graph-node.n4 { background: var(--surface); border: 2px solid var(--border); left: 75%; top: 70%; }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .recommendation-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 10px;
+        }
+
+        .rec-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-glow), var(--surface));
+            border: 2px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .rec-info { flex: 1; }
+        .rec-info h4 { font-size: 15px; margin-bottom: 2px; }
+        .rec-info p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+        .rec-score {
+            padding: 4px 10px;
+            background: var(--accent-glow);
+            border-radius: 12px;
+            font-size: 12px;
+            color: var(--accent-light);
+            font-weight: 600;
+        }
+
+        /* ===== PAGE: Chat ===== */
+        .chat-page {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .chat-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chat-header .back {
+            font-size: 20px;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        .chat-header-info h3 { font-size: 16px; }
+        .chat-header-info p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+        .chat-ai-badge {
+            padding: 2px 8px;
+            background: var(--accent-glow);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            font-size: 10px;
+            color: var(--accent-light);
+            margin-left: auto;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .message {
+            max-width: 75%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 14px;
+            line-height: 1.5;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.received {
+            align-self: flex-start;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message.sent {
+            align-self: flex-end;
+            background: var(--accent);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .chat-input-area {
+            padding: 12px 16px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px 16px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            color: var(--text);
+            font-size: 14px;
+            outline: none;
+        }
+
+        .chat-input:focus { border-color: var(--accent); }
+
+        .send-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--accent);
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .send-btn:active { transform: scale(0.9); }
+
+        .send-btn svg {
+            width: 18px;
+            height: 18px;
+            stroke: white;
+            fill: none;
+            stroke-width: 2;
+        }
+
+        /* ===== PAGE: Profile ===== */
+        .profile-page {
+            padding: 32px 20px;
+            text-align: center;
+        }
+
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: var(--accent-glow);
+            border: 3px solid var(--accent);
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+        }
+
+        .profile-name {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .profile-bio {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .persona-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 32px;
+        }
+
+        .persona-tag {
+            padding: 6px 14px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .profile-stats {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            margin-bottom: 32px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent-light);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* ===== PAGE: Content Plaza ===== */
+        .plaza-page {
+            padding: 20px;
+        }
+
+        .plaza-header {
+            margin-bottom: 20px;
+        }
+
+        .plaza-header h2 {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .daily-topic {
+            padding: 20px;
+            background: linear-gradient(135deg, var(--accent-glow), var(--surface-2));
+            border: 1px solid var(--accent);
+            border-radius: var(--radius);
+            margin-bottom: 20px;
+        }
+
+        .daily-topic .label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-light);
+            margin-bottom: 8px;
+        }
+
+        .daily-topic .topic {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .snippet-card {
+            padding: 16px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+
+        .snippet-card .snippet-text {
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 12px;
+            font-style: italic;
+            color: var(--text-secondary);
+        }
+
+        .snippet-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .snippet-meta .likes {
+            color: var(--accent-light);
+        }
+
+        /* Hide all pages by default */
+        .page { display: none; }
+        .page.active { display: block; }
+        .page.active.chat-page { display: flex; }
+
+        /* Desktop wrapper */
+        .desktop-layout {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="page-selector">
+    <h1>NanoChat UI Prototype</h1>
+    <div class="page-btns">
+        <button class="page-btn active" onclick="showPage('landing')">Landing</button>
+        <button class="page-btn" onclick="showPage('avatar')">Avatar Creation</button>
+        <button class="page-btn" onclick="showPage('discover')">Discover</button>
+        <button class="page-btn" onclick="showPage('chat')">Chat</button>
+        <button class="page-btn" onclick="showPage('profile')">Profile</button>
+        <button class="page-btn" onclick="showPage('plaza')">Content Plaza</button>
+    </div>
+</div>
+
+<div class="desktop-layout">
+<div class="phone-frame">
+    <div class="status-bar">
+        <span>9:41</span>
+        <span>NanoChat</span>
+        <span>&#9679;&#9679;&#9679;</span>
+    </div>
+
+    <div class="screen">
+        <!-- Landing Page -->
+        <div class="page active" id="page-landing">
+            <div class="landing-content">
+                <div class="landing-logo">Nano</div>
+                <p class="landing-tagline">发现身边有趣的人</p>
+                <div class="invite-input-group">
+                    <input type="text" class="invite-input" placeholder="输入邀请码" maxlength="8">
+                </div>
+                <button class="btn-primary">开始探索</button>
+                <p class="landing-footer">由朋友邀请加入</p>
+            </div>
+        </div>
+
+        <!-- Avatar Creation -->
+        <div class="page" id="page-avatar">
+            <div class="avatar-page">
+                <h2>创建你的角色</h2>
+                <p class="step-indicator">Step 1 / 3 - 选择外观</p>
+
+                <div class="avatar-preview">
+                    <svg viewBox="0 0 120 120" id="avatar-svg">
+                        <!-- Face -->
+                        <ellipse cx="60" cy="65" rx="35" ry="40" fill="none" stroke="#a78bfa" stroke-width="2"/>
+                        <!-- Eyes -->
+                        <circle cx="45" cy="58" r="4" fill="#a78bfa"/>
+                        <circle cx="75" cy="58" r="4" fill="#a78bfa"/>
+                        <!-- Mouth -->
+                        <path d="M 48 78 Q 60 86 72 78" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round"/>
+                        <!-- Hair -->
+                        <path d="M 25 50 Q 30 20 60 18 Q 90 20 95 50" fill="none" stroke="#a78bfa" stroke-width="2.5"/>
+                        <path d="M 25 50 Q 20 60 22 75" fill="none" stroke="#a78bfa" stroke-width="2"/>
+                        <path d="M 95 50 Q 100 60 98 75" fill="none" stroke="#a78bfa" stroke-width="2"/>
+                    </svg>
+                </div>
+
+                <div class="component-section">
+                    <label>Face Shape</label>
+                    <div class="component-options">
+                        <div class="component-option selected">
+                            <svg width="32" height="32" viewBox="0 0 32 32"><ellipse cx="16" cy="17" rx="10" ry="12" fill="none" stroke="#a78bfa" stroke-width="1.5"/></svg>
+                        </div>
+                        <div class="component-option">
+                            <svg width="32" height="32" viewBox="0 0 32 32"><rect x="6" y="6" width="20" height="22" rx="4" fill="none" stroke="#71717a" stroke-width="1.5"/></svg>
+                        </div>
+                        <div class="component-option">
+                            <svg width="32" height="32" viewBox="0 0 32 32"><path d="M 16 4 Q 28 10 26 20 Q 24 30 16 30 Q 8 30 6 20 Q 4 10 16 4" fill="none" stroke="#71717a" stroke-width="1.5"/></svg>
+                        </div>
+                        <div class="component-option">
+                            <svg width="32" height="32" viewBox="0 0 32 32"><ellipse cx="16" cy="17" rx="11" ry="13" fill="none" stroke="#71717a" stroke-width="1.5"/></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="component-section">
+                    <label>Hair Style</label>
+                    <div class="component-options">
+                        <div class="component-option selected">
+                            <svg width="32" height="32" viewBox="0 0 32 32"><path d="M 8 16 Q 10 4 16 3 Q 22 4 24 16" fill="none" stroke="#a78bfa" stroke-width="1.5"/><path d="M 8 16 Q 6 20 7 24" fill="none" stroke="#a78bfa" stroke-width="1.5"/><path d="M 24 16 Q 26 20 25 24" fill="none" stroke="#a78bfa" stroke-width="1.5"/></svg>
+                        </div>
+                        <div class="component-option">
+                            <svg width="32" height="32" viewBox="0 0 32 32"><path d="M 8 16 Q 10 4 16 3 Q 22 4 24 16" fill="none" stroke="#71717a" stroke-width="1.5"/></svg>
+                        </div>
+                        <div class="component-option">
+                            <svg width="32" height="32" viewBox="0 0 32 32"><path d="M 8 14 Q 10 4 16 3 Q 22 4 24 14" fill="none" stroke="#71717a" stroke-width="1.5"/><circle cx="16" cy="6" r="4" fill="none" stroke="#71717a" stroke-width="1.5"/></svg>
+                        </div>
+                        <div class="component-option">
+                            <svg width="32" height="32" viewBox="0 0 32 32"><path d="M 10 16 Q 12 6 16 5 Q 20 6 22 16" fill="none" stroke="#71717a" stroke-width="1.5"/></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="component-section">
+                    <label>Hair Color</label>
+                    <div class="component-options">
+                        <div class="component-option selected"><div class="color-dot" style="background: #1a1a2e;"></div></div>
+                        <div class="component-option"><div class="color-dot" style="background: #8b4513;"></div></div>
+                        <div class="component-option"><div class="color-dot" style="background: #daa520;"></div></div>
+                        <div class="component-option"><div class="color-dot" style="background: #dc143c;"></div></div>
+                        <div class="component-option"><div class="color-dot" style="background: #4169e1;"></div></div>
+                        <div class="component-option"><div class="color-dot" style="background: #8b5cf6;"></div></div>
+                    </div>
+                </div>
+
+                <div class="component-section">
+                    <label>Eyes</label>
+                    <div class="component-options">
+                        <div class="component-option selected">
+                            <svg width="32" height="32" viewBox="0 0 32 32"><circle cx="12" cy="16" r="3" fill="#a78bfa"/><circle cx="20" cy="16" r="3" fill="#a78bfa"/></svg>
+                        </div>
+                        <div class="component-option">
+                            <svg width="32" height="32" viewBox="0 0 32 32"><ellipse cx="12" cy="16" rx="3" ry="2" fill="#71717a"/><ellipse cx="20" cy="16" rx="3" ry="2" fill="#71717a"/></svg>
+                        </div>
+                        <div class="component-option">
+                            <svg width="32" height="32" viewBox="0 0 32 32"><path d="M 9 16 Q 12 13 15 16" fill="none" stroke="#71717a" stroke-width="1.5"/><path d="M 17 16 Q 20 13 23 16" fill="none" stroke="#71717a" stroke-width="1.5"/></svg>
+                        </div>
+                        <div class="component-option">
+                            <svg width="32" height="32" viewBox="0 0 32 32"><path d="M 9 17 Q 12 14 15 17" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round"/><path d="M 17 17 Q 20 14 23 17" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round"/></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn-primary" style="margin-top: 24px;">下一步：回答问题</button>
+            </div>
+        </div>
+
+        <!-- Discover Page -->
+        <div class="page" id="page-discover">
+            <div class="discover-page">
+                <div class="discover-header">
+                    <h2>发现</h2>
+                    <div class="avatar-small"></div>
+                </div>
+
+                <div class="graph-placeholder">
+                    <div class="graph-node me">我</div>
+                    <div class="graph-node n1">A</div>
+                    <div class="graph-node n2">B</div>
+                    <div class="graph-node n3">C</div>
+                    <div class="graph-node n4">D</div>
+                </div>
+
+                <h3 class="section-title">推荐的人</h3>
+
+                <div class="recommendation-card">
+                    <div class="rec-avatar"></div>
+                    <div class="rec-info">
+                        <h4>星河</h4>
+                        <p>二度好友 &middot; INFP &middot; 水瓶座</p>
+                    </div>
+                    <span class="rec-score">87%</span>
+                </div>
+
+                <div class="recommendation-card">
+                    <div class="rec-avatar"></div>
+                    <div class="rec-info">
+                        <h4>阿拉斯加</h4>
+                        <p>一度好友 &middot; ENTP &middot; 射手座</p>
+                    </div>
+                    <span class="rec-score">73%</span>
+                </div>
+
+                <div class="recommendation-card">
+                    <div class="rec-avatar"></div>
+                    <div class="rec-info">
+                        <h4>猫又</h4>
+                        <p>二度好友 &middot; ISFJ &middot; 巨蟹座</p>
+                    </div>
+                    <span class="rec-score">68%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Page -->
+        <div class="page chat-page" id="page-chat">
+            <div class="chat-header">
+                <span class="back">&larr;</span>
+                <div class="rec-avatar" style="width:36px;height:36px;"></div>
+                <div class="chat-header-info">
+                    <h3>辛辣姐</h3>
+                    <p>在线</p>
+                </div>
+                <span class="chat-ai-badge">AI</span>
+            </div>
+
+            <div class="chat-messages">
+                <div class="message received">哟，新来的？说吧，什么事。</div>
+                <div class="message sent">最近有点迷茫，不知道该不该换工作</div>
+                <div class="message received">啧。"有点迷茫"这种话我听过一万次了。你到底是怕换了后悔，还是怕不换后悔？</div>
+                <div class="message sent">好像...两个都怕？</div>
+                <div class="message received">得了吧。怕两个就等于不怕。你真正怕的是做选择本身。不过没关系，这很正常。先告诉我，现在这份工作让你最难受的一件事是什么？</div>
+            </div>
+
+            <div class="chat-input-area">
+                <input type="text" class="chat-input" placeholder="说点什么...">
+                <button class="send-btn">
+                    <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Profile Page -->
+        <div class="page" id="page-profile">
+            <div class="profile-page">
+                <div class="profile-avatar">
+                    <svg width="60" height="60" viewBox="0 0 120 120">
+                        <ellipse cx="60" cy="65" rx="35" ry="40" fill="none" stroke="#a78bfa" stroke-width="2"/>
+                        <circle cx="45" cy="58" r="4" fill="#a78bfa"/>
+                        <circle cx="75" cy="58" r="4" fill="#a78bfa"/>
+                        <path d="M 48 78 Q 60 86 72 78" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round"/>
+                        <path d="M 25 50 Q 30 20 60 18 Q 90 20 95 50" fill="none" stroke="#a78bfa" stroke-width="2.5"/>
+                    </svg>
+                </div>
+                <h2 class="profile-name">星河</h2>
+                <p class="profile-bio">活在自己世界里的浪漫主义者</p>
+
+                <div class="persona-tags">
+                    <span class="persona-tag">INFP</span>
+                    <span class="persona-tag">水瓶座</span>
+                    <span class="persona-tag">文艺</span>
+                    <span class="persona-tag">夜猫子</span>
+                    <span class="persona-tag">后摇</span>
+                    <span class="persona-tag">麻辣烫</span>
+                </div>
+
+                <div class="profile-stats">
+                    <div class="stat">
+                        <div class="stat-value">12</div>
+                        <div class="stat-label">连接</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">87%</div>
+                        <div class="stat-label">最高契合</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">3</div>
+                        <div class="stat-label">邀请码</div>
+                    </div>
+                </div>
+
+                <button class="btn-primary">分享角色卡片</button>
+            </div>
+        </div>
+
+        <!-- Content Plaza -->
+        <div class="page" id="page-plaza">
+            <div class="plaza-page">
+                <div class="plaza-header">
+                    <h2>广场</h2>
+                </div>
+
+                <div class="daily-topic">
+                    <div class="label">Today's Topic</div>
+                    <div class="topic">如果明天是世界末日，今晚你想和谁吃最后一顿饭？</div>
+                </div>
+
+                <div class="snippet-card">
+                    <div class="snippet-text">"你觉得人能同时爱两个人吗？" "能。但你得先学会爱一个。"</div>
+                    <div class="snippet-meta">
+                        <span>匿名对话 &middot; 2小时前</span>
+                        <span class="likes">&#9825; 24</span>
+                    </div>
+                </div>
+
+                <div class="snippet-card">
+                    <div class="snippet-text">"AI 说我最适合和 ENTJ 在一起" "那它认识我吗" "...你是 ENTJ？" "才不告诉你"</div>
+                    <div class="snippet-meta">
+                        <span>匿名对话 &middot; 5小时前</span>
+                        <span class="likes">&#9825; 42</span>
+                    </div>
+                </div>
+
+                <div class="snippet-card">
+                    <div class="snippet-text">"去荒岛你带什么？" "WiFi路由器、充电宝、和你的联系方式" "...荒岛哪来的信号" "所以我还带了路由器啊"</div>
+                    <div class="snippet-meta">
+                        <span>匿名对话 &middot; 昨天</span>
+                        <span class="likes">&#9825; 89</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <div class="nav-tabs">
+        <div class="nav-tab" onclick="showPage('discover')">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span>发现</span>
+        </div>
+        <div class="nav-tab" onclick="showPage('chat')">
+            <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span>对话</span>
+        </div>
+        <div class="nav-tab" onclick="showPage('plaza')">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+            <span>广场</span>
+        </div>
+        <div class="nav-tab" onclick="showPage('profile')">
+            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span>我</span>
+        </div>
+    </div>
+</div>
+</div>
+
+<script>
+function showPage(pageId) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + pageId).classList.add('active');
+
+    document.querySelectorAll('.page-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+
+    document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+}
+
+document.querySelectorAll('.component-option').forEach(opt => {
+    opt.addEventListener('click', function() {
+        const section = this.closest('.component-section');
+        section.querySelectorAll('.component-option').forEach(o => o.classList.remove('selected'));
+        this.classList.add('selected');
+    });
+});
+</script>
+
+</body>
+</html>

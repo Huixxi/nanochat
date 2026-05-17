@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NanoChat - Technical Architecture</title>
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #14141f;
+            --border: #1e1e2e;
+            --text: #f0f0f5;
+            --text-secondary: #8888a0;
+            --accent: #7c5bf5;
+            --accent-light: #a78bfa;
+            --accent-glow: rgba(124, 91, 245, 0.15);
+            --green: #34d399;
+            --blue: #60a5fa;
+            --orange: #fb923c;
+            --pink: #f472b6;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 80px 40px;
+        }
+
+        .hero {
+            text-align: center;
+            padding: 100px 40px;
+            position: relative;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(96, 165, 250, 0.1) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero h1 {
+            font-size: 56px;
+            font-weight: 700;
+            letter-spacing: -2px;
+            margin-bottom: 12px;
+        }
+
+        .hero .subtitle {
+            font-size: 20px;
+            color: var(--text-secondary);
+            font-weight: 300;
+        }
+
+        section { margin-bottom: 80px; }
+
+        h2 {
+            font-size: 32px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin-bottom: 32px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin: 32px 0 16px;
+            color: var(--blue);
+        }
+
+        p {
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            font-size: 15px;
+        }
+
+        /* Architecture diagram */
+        .arch-diagram {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 40px;
+            margin: 24px 0;
+            overflow-x: auto;
+        }
+
+        .arch-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            margin: 16px 0;
+            flex-wrap: wrap;
+        }
+
+        .arch-box {
+            padding: 16px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            text-align: center;
+            min-width: 140px;
+        }
+
+        .arch-box.frontend { background: rgba(96, 165, 250, 0.15); border: 1px solid var(--blue); color: var(--blue); }
+        .arch-box.backend { background: rgba(124, 91, 245, 0.15); border: 1px solid var(--accent); color: var(--accent-light); }
+        .arch-box.data { background: rgba(52, 211, 153, 0.15); border: 1px solid var(--green); color: var(--green); }
+        .arch-box.ai { background: rgba(251, 146, 60, 0.15); border: 1px solid var(--orange); color: var(--orange); }
+        .arch-box.infra { background: rgba(244, 114, 182, 0.15); border: 1px solid var(--pink); color: var(--pink); }
+
+        .arch-connector {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 20px;
+            margin: 8px 0;
+        }
+
+        .arch-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        /* Tech stack table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        th {
+            color: var(--accent-light);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td { color: var(--text-secondary); }
+
+        /* Code block */
+        .code-block {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 16px 0;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 13px;
+            line-height: 1.8;
+            overflow-x: auto;
+            color: var(--text-secondary);
+        }
+
+        .code-block .comment { color: #555570; }
+        .code-block .keyword { color: var(--accent-light); }
+        .code-block .string { color: var(--green); }
+        .code-block .type { color: var(--blue); }
+
+        /* Card grid */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .card h4 {
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .card p { font-size: 13px; margin: 0; }
+
+        /* Tag */
+        .tag {
+            display: inline-block;
+            padding: 3px 8px;
+            background: var(--accent-glow);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            font-size: 11px;
+            color: var(--accent-light);
+        }
+
+        /* Highlight */
+        .highlight {
+            background: var(--accent-glow);
+            border: 1px solid var(--accent);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .highlight h4 { color: var(--accent-light); margin-bottom: 8px; }
+
+        @media (max-width: 600px) {
+            .container { padding: 40px 20px; }
+            .hero { padding: 60px 20px; }
+            .hero h1 { font-size: 36px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="hero">
+    <h1>Tech Architecture</h1>
+    <p class="subtitle">NanoChat Technical Design Document v1.0</p>
+</div>
+
+<div class="container">
+
+    <!-- Overview -->
+    <section>
+        <h2>Architecture Overview</h2>
+        <p>前后端分离架构，WebSocket 实时通信，本地 AI 推理。设计原则：MVP 轻量可迭代，关键路径上预留扩展点。</p>
+
+        <div class="arch-diagram">
+            <div class="arch-label">CLIENT LAYER</div>
+            <div class="arch-row">
+                <div class="arch-box frontend">React SPA<br><small>TypeScript + TailwindCSS</small></div>
+                <div class="arch-box frontend">Mobile H5<br><small>Responsive</small></div>
+            </div>
+
+            <div class="arch-connector">&darr; REST API + WebSocket &darr;</div>
+
+            <div class="arch-label">APPLICATION LAYER</div>
+            <div class="arch-row">
+                <div class="arch-box backend">FastAPI<br><small>Main Server</small></div>
+                <div class="arch-box backend">Socket.IO<br><small>Realtime</small></div>
+                <div class="arch-box backend">Auth Service<br><small>JWT + Invite</small></div>
+            </div>
+
+            <div class="arch-connector">&darr; &darr; &darr;</div>
+
+            <div class="arch-label">DATA LAYER</div>
+            <div class="arch-row">
+                <div class="arch-box data">PostgreSQL<br><small>Primary DB</small></div>
+                <div class="arch-box data">Redis<br><small>Cache + Sessions</small></div>
+                <div class="arch-box data">File Storage<br><small>Avatars + Media</small></div>
+            </div>
+
+            <div class="arch-connector">&darr;</div>
+
+            <div class="arch-label">AI LAYER</div>
+            <div class="arch-row">
+                <div class="arch-box ai">Ollama<br><small>Model Runtime</small></div>
+                <div class="arch-box ai">Qwen2.5-7B<br><small>Chat + Persona</small></div>
+                <div class="arch-box ai">Embedding<br><small>Compatibility</small></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tech Stack -->
+    <section>
+        <h2>Technology Stack</h2>
+
+        <table>
+            <tr><th>Layer</th><th>Technology</th><th>Reason</th></tr>
+            <tr><td>Frontend</td><td>React 18 + TypeScript</td><td>组件化、类型安全、生态丰富</td></tr>
+            <tr><td>Styling</td><td>TailwindCSS + Framer Motion</td><td>快速迭代 + 流畅动画</td></tr>
+            <tr><td>Build</td><td>Vite</td><td>极快的 HMR，开发体验好</td></tr>
+            <tr><td>Routing</td><td>React Router v6</td><td>SPA 路由标准方案</td></tr>
+            <tr><td>Backend</td><td>Python FastAPI</td><td>异步、自动文档、Python AI 生态</td></tr>
+            <tr><td>ORM</td><td>SQLAlchemy 2.0 + Alembic</td><td>成熟稳定，迁移管理</td></tr>
+            <tr><td>Realtime</td><td>python-socketio</td><td>WebSocket 抽象，支持房间和命名空间</td></tr>
+            <tr><td>Database</td><td>SQLite (dev) / PostgreSQL (prod)</td><td>零配置开发，生产可靠</td></tr>
+            <tr><td>Cache</td><td>Redis</td><td>会话状态、在线状态、消息队列</td></tr>
+            <tr><td>AI Runtime</td><td>Ollama</td><td>本地部署简单，支持多模型</td></tr>
+            <tr><td>AI Model</td><td>Qwen2.5-7B / Llama 3 8B</td><td>中文能力强，7B 可单卡推理</td></tr>
+            <tr><td>Container</td><td>Docker + docker-compose</td><td>一键启动完整环境</td></tr>
+        </table>
+    </section>
+
+    <!-- Data Models -->
+    <section>
+        <h2>Data Models</h2>
+
+        <h3>Core Entities</h3>
+        <div class="code-block">
+<span class="comment">-- Users: 核心用户表</span>
+<span class="keyword">CREATE TABLE</span> users (
+    id          <span class="type">UUID</span> PRIMARY KEY,
+    nickname    <span class="type">VARCHAR(50)</span> NOT NULL,
+    phone       <span class="type">VARCHAR(20)</span> UNIQUE,
+    avatar_config <span class="type">JSONB</span>,        <span class="comment">-- 头像组件配置</span>
+    invite_code <span class="type">VARCHAR(8)</span> UNIQUE,  <span class="comment">-- 该用户的邀请码</span>
+    invited_by  <span class="type">UUID</span> REFERENCES users(id),
+    created_at  <span class="type">TIMESTAMP</span> DEFAULT NOW()
+);
+
+<span class="comment">-- Personas: 用户人设数据</span>
+<span class="keyword">CREATE TABLE</span> personas (
+    user_id     <span class="type">UUID</span> PRIMARY KEY REFERENCES users(id),
+    answers     <span class="type">JSONB</span>,            <span class="comment">-- 结构化问答答案</span>
+    summary     <span class="type">TEXT</span>,             <span class="comment">-- AI 生成的自然语言摘要</span>
+    tags        <span class="type">TEXT[]</span>,           <span class="comment">-- 兼容性标签</span>
+    embedding   <span class="type">VECTOR(768)</span>,      <span class="comment">-- 人设向量（用于匹配）</span>
+    updated_at  <span class="type">TIMESTAMP</span>
+);
+
+<span class="comment">-- Conversations: 会话</span>
+<span class="keyword">CREATE TABLE</span> conversations (
+    id          <span class="type">UUID</span> PRIMARY KEY,
+    type        <span class="type">VARCHAR(10)</span>,      <span class="comment">-- 'direct' | 'group' | 'ai'</span>
+    ai_persona  <span class="type">VARCHAR(50)</span>,      <span class="comment">-- AI 角色标识（如果是 AI 对话）</span>
+    created_at  <span class="type">TIMESTAMP</span> DEFAULT NOW()
+);
+
+<span class="comment">-- Messages: 消息</span>
+<span class="keyword">CREATE TABLE</span> messages (
+    id              <span class="type">UUID</span> PRIMARY KEY,
+    conversation_id <span class="type">UUID</span> REFERENCES conversations(id),
+    sender_id       <span class="type">UUID</span>,         <span class="comment">-- NULL 表示系统消息</span>
+    content         <span class="type">TEXT</span> NOT NULL,
+    msg_type        <span class="type">VARCHAR(10)</span>,  <span class="comment">-- 'text' | 'image' | 'system'</span>
+    created_at      <span class="type">TIMESTAMP</span> DEFAULT NOW()
+);
+
+<span class="comment">-- Invitations: 邀请记录</span>
+<span class="keyword">CREATE TABLE</span> invitations (
+    code        <span class="type">VARCHAR(8)</span> PRIMARY KEY,
+    created_by  <span class="type">UUID</span> REFERENCES users(id),
+    used_by     <span class="type">UUID</span> REFERENCES users(id),
+    used_at     <span class="type">TIMESTAMP</span>,
+    expires_at  <span class="type">TIMESTAMP</span>
+);
+        </div>
+
+        <h3>Relationship Graph</h3>
+        <div class="code-block">
+<span class="comment">-- 关系图谱通过 invited_by 字段隐式构建</span>
+<span class="comment">-- 社交距离通过 BFS 遍历计算：</span>
+<span class="comment">-- 一度 = 直接邀请关系（A invited B 或 B invited A）</span>
+<span class="comment">-- 二度 = 需要经过一个中间人</span>
+<span class="comment">-- 三度 = 经过两个中间人</span>
+
+<span class="comment">-- 为了性能，预计算并缓存社交距离矩阵：</span>
+<span class="keyword">CREATE TABLE</span> social_distance (
+    user_a      <span class="type">UUID</span>,
+    user_b      <span class="type">UUID</span>,
+    distance    <span class="type">SMALLINT</span>,        <span class="comment">-- 1, 2, 3</span>
+    path        <span class="type">UUID[]</span>,          <span class="comment">-- 中间节点路径</span>
+    PRIMARY KEY (user_a, user_b)
+);
+        </div>
+    </section>
+
+    <!-- API Design -->
+    <section>
+        <h2>API Design</h2>
+
+        <h3>RESTful Endpoints</h3>
+        <table>
+            <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+            <tr><td><span class="tag">POST</span></td><td>/api/auth/register</td><td>邀请码注册</td></tr>
+            <tr><td><span class="tag">POST</span></td><td>/api/auth/login</td><td>手机号登录</td></tr>
+            <tr><td><span class="tag">GET</span></td><td>/api/users/me</td><td>获取当前用户信息</td></tr>
+            <tr><td><span class="tag">PUT</span></td><td>/api/users/me/avatar</td><td>更新头像配置</td></tr>
+            <tr><td><span class="tag">POST</span></td><td>/api/persona/answers</td><td>提交问答答案</td></tr>
+            <tr><td><span class="tag">GET</span></td><td>/api/persona/{user_id}</td><td>获取用户人设（权限控制）</td></tr>
+            <tr><td><span class="tag">GET</span></td><td>/api/graph/me</td><td>获取我的关系图谱</td></tr>
+            <tr><td><span class="tag">GET</span></td><td>/api/match/recommendations</td><td>获取推荐用户列表</td></tr>
+            <tr><td><span class="tag">GET</span></td><td>/api/match/compatibility/{user_id}</td><td>计算与某人的契合度</td></tr>
+            <tr><td><span class="tag">POST</span></td><td>/api/conversations</td><td>创建对话</td></tr>
+            <tr><td><span class="tag">GET</span></td><td>/api/conversations</td><td>获取对话列表</td></tr>
+            <tr><td><span class="tag">GET</span></td><td>/api/conversations/{id}/messages</td><td>获取历史消息</td></tr>
+            <tr><td><span class="tag">POST</span></td><td>/api/invites/generate</td><td>生成邀请码</td></tr>
+            <tr><td><span class="tag">GET</span></td><td>/api/ai/personas</td><td>获取 AI 角色列表</td></tr>
+        </table>
+
+        <h3>WebSocket Events</h3>
+        <table>
+            <tr><th>Event</th><th>Direction</th><th>Payload</th></tr>
+            <tr><td>connect</td><td>Client &rarr; Server</td><td>{ token }</td></tr>
+            <tr><td>join_conversation</td><td>Client &rarr; Server</td><td>{ conversation_id }</td></tr>
+            <tr><td>send_message</td><td>Client &rarr; Server</td><td>{ conversation_id, content, type }</td></tr>
+            <tr><td>new_message</td><td>Server &rarr; Client</td><td>{ message object }</td></tr>
+            <tr><td>typing</td><td>Bidirectional</td><td>{ conversation_id, user_id }</td></tr>
+            <tr><td>user_online</td><td>Server &rarr; Client</td><td>{ user_id, status }</td></tr>
+            <tr><td>ai_response_stream</td><td>Server &rarr; Client</td><td>{ conversation_id, chunk }</td></tr>
+        </table>
+    </section>
+
+    <!-- AI Integration -->
+    <section>
+        <h2>AI Integration</h2>
+
+        <h3>Architecture</h3>
+        <div class="arch-diagram">
+            <div class="arch-row">
+                <div class="arch-box backend">Chat Router<br><small>Dispatch to AI/Human</small></div>
+            </div>
+            <div class="arch-connector">&darr;</div>
+            <div class="arch-row">
+                <div class="arch-box ai">Prompt Builder<br><small>System + Persona + History</small></div>
+            </div>
+            <div class="arch-connector">&darr;</div>
+            <div class="arch-row">
+                <div class="arch-box ai">Ollama API<br><small>localhost:11434</small></div>
+            </div>
+            <div class="arch-connector">&darr;</div>
+            <div class="arch-row">
+                <div class="arch-box ai">Stream Response<br><small>Token by token via WebSocket</small></div>
+            </div>
+        </div>
+
+        <h3>Prompt Engineering</h3>
+        <div class="code-block">
+<span class="comment"># AI 角色对话的 prompt 构建</span>
+
+<span class="keyword">SYSTEM_PROMPT</span> = <span class="string">"""
+你是 {character_name}，一个 NanoChat 上的 AI 角色。
+
+## 你的人设
+{character_persona}
+
+## 你的说话风格
+{character_style}
+
+## 对话对象信息
+对方昵称：{user_nickname}
+对方人设摘要：{user_persona_summary}
+
+## 规则
+- 保持角色一致性，不要出戏
+- 回复简短（1-3句），像真人聊天
+- 可以使用 emoji，但不要过度
+- 永远不要说"作为AI"或承认自己是AI
+- 如果对方问到你不想回答的问题，用角色特色方式转移话题
+"""</span>
+        </div>
+
+        <h3>AI Persona Files</h3>
+        <p>每个 AI 角色在 <code>backend/ai_personas/</code> 下有独立配置文件：</p>
+        <div class="code-block">
+<span class="comment"># ai_personas/spicy.yaml</span>
+<span class="keyword">name</span>: <span class="string">"辛辣姐"</span>
+<span class="keyword">id</span>: <span class="string">"spicy"</span>
+<span class="keyword">avatar</span>:
+  <span class="keyword">face</span>: <span class="string">"oval"</span>
+  <span class="keyword">hair</span>: <span class="string">"long-straight"</span>
+  <span class="keyword">hair_color</span>: <span class="string">"red"</span>
+  <span class="keyword">eyes</span>: <span class="string">"cat"</span>
+  <span class="keyword">mouth</span>: <span class="string">"smirk"</span>
+
+<span class="keyword">persona</span>: |
+  28岁，自由职业文案。说话直接犀利，
+  但每句毒舌背后都是真心建议。
+  喜欢红酒、深夜播客和猫。
+  讨厌虚伪和废话。
+
+<span class="keyword">style</span>: |
+  - 喜欢用反问句
+  - 偶尔爆粗口（轻度）
+  - 会在毒舌后加一个暖心的转折
+  - 语气词：啧、哦豁、得了吧
+
+<span class="keyword">opening_lines</span>:
+  - <span class="string">"哟，新来的？说吧，什么事。"</span>
+  - <span class="string">"又一个睡不着来找我聊的？"</span>
+  - <span class="string">"今天心情不错，毒舌力度减半。"</span>
+        </div>
+
+        <h3>Compatibility Engine</h3>
+        <div class="code-block">
+<span class="comment"># 契合度计算流程</span>
+
+<span class="keyword">def</span> calculate_compatibility(user_a, user_b):
+    <span class="comment"># 1. 向量相似度 (权重 40%)</span>
+    vec_score = cosine_similarity(
+        user_a.persona.embedding,
+        user_b.persona.embedding
+    )
+
+    <span class="comment"># 2. MBTI 兼容性矩阵 (权重 20%)</span>
+    mbti_score = MBTI_MATRIX[user_a.mbti][user_b.mbti]
+
+    <span class="comment"># 3. 兴趣标签重合度 (权重 25%)</span>
+    tag_score = jaccard_similarity(
+        user_a.persona.tags,
+        user_b.persona.tags
+    )
+
+    <span class="comment"># 4. 社交风格匹配 (权重 15%)</span>
+    style_score = social_style_match(user_a, user_b)
+
+    <span class="keyword">return</span> (
+        vec_score * 0.4 +
+        mbti_score * 0.2 +
+        tag_score * 0.25 +
+        style_score * 0.15
+    )
+        </div>
+    </section>
+
+    <!-- Realtime Communication -->
+    <section>
+        <h2>Realtime Communication</h2>
+
+        <h3>WebSocket Architecture</h3>
+        <div class="card-grid">
+            <div class="card">
+                <h4>Connection Management</h4>
+                <p>JWT token 认证，每用户一个长连接。Redis pub/sub 支持多实例横向扩展。</p>
+            </div>
+            <div class="card">
+                <h4>Room-based Routing</h4>
+                <p>每个 conversation 是一个 room，消息只广播给 room 内成员。</p>
+            </div>
+            <div class="card">
+                <h4>AI Streaming</h4>
+                <p>AI 回复逐 token 推送，前端实时渲染打字效果。</p>
+            </div>
+            <div class="card">
+                <h4>Presence System</h4>
+                <p>Redis 维护在线状态，心跳检测，30秒超时判定离线。</p>
+            </div>
+        </div>
+
+        <h3>Message Flow</h3>
+        <div class="code-block">
+<span class="comment"># 消息处理流程</span>
+
+Client A sends message
+    &darr;
+WebSocket Server receives
+    &darr;
+<span class="keyword">if</span> conversation.type == <span class="string">'ai'</span>:
+    &rarr; Enqueue AI generation task
+    &rarr; Stream tokens back to Client A
+<span class="keyword">elif</span> conversation.type == <span class="string">'direct'</span>:
+    &rarr; Persist to DB
+    &rarr; Broadcast to room (Client B)
+    &rarr; Push notification if B is offline
+        </div>
+    </section>
+
+    <!-- Security -->
+    <section>
+        <h2>Security Design</h2>
+
+        <table>
+            <tr><th>Concern</th><th>Solution</th></tr>
+            <tr><td>Authentication</td><td>JWT (access token 15min + refresh token 7d)</td></tr>
+            <tr><td>Authorization</td><td>社交距离 based access control</td></tr>
+            <tr><td>Input Validation</td><td>Pydantic models + content filtering</td></tr>
+            <tr><td>Rate Limiting</td><td>Redis-based, per-user, per-endpoint</td></tr>
+            <tr><td>AI Safety</td><td>Output filtering + prompt injection detection</td></tr>
+            <tr><td>Data Privacy</td><td>人设信息分级可见，用户可控</td></tr>
+            <tr><td>Transport</td><td>HTTPS + WSS (TLS 1.3)</td></tr>
+        </table>
+    </section>
+
+    <!-- Deployment -->
+    <section>
+        <h2>Deployment Strategy</h2>
+
+        <h3>Local Development</h3>
+        <div class="code-block">
+<span class="comment"># docker-compose.yml 一键启动</span>
+services:
+  <span class="keyword">api</span>:
+    build: ./backend
+    ports: [<span class="string">"8000:8000"</span>]
+    depends_on: [redis, ollama]
+
+  <span class="keyword">frontend</span>:
+    build: ./frontend
+    ports: [<span class="string">"3000:3000"</span>]
+
+  <span class="keyword">redis</span>:
+    image: redis:7-alpine
+    ports: [<span class="string">"6379:6379"</span>]
+
+  <span class="keyword">ollama</span>:
+    image: ollama/ollama
+    ports: [<span class="string">"11434:11434"</span>]
+    volumes: [<span class="string">"./models:/root/.ollama"</span>]
+        </div>
+
+        <h3>Production (预留)</h3>
+        <div class="card-grid">
+            <div class="card">
+                <h4>Cloud Provider</h4>
+                <p>阿里云 ECS (2C4G + GPU 实例 for AI)</p>
+            </div>
+            <div class="card">
+                <h4>Database</h4>
+                <p>阿里云 RDS PostgreSQL</p>
+            </div>
+            <div class="card">
+                <h4>CDN + Storage</h4>
+                <p>阿里云 OSS + CDN 静态资源</p>
+            </div>
+            <div class="card">
+                <h4>CI/CD</h4>
+                <p>GitHub Actions &rarr; Docker Hub &rarr; ECS deploy</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Performance -->
+    <section>
+        <h2>Performance Considerations</h2>
+
+        <table>
+            <tr><th>Metric</th><th>Target (MVP)</th><th>Strategy</th></tr>
+            <tr><td>API Response</td><td>&lt; 200ms (p95)</td><td>Redis caching, DB indexing</td></tr>
+            <tr><td>WebSocket Latency</td><td>&lt; 100ms</td><td>In-memory pub/sub</td></tr>
+            <tr><td>AI First Token</td><td>&lt; 2s</td><td>Model warm-up, KV cache</td></tr>
+            <tr><td>AI Full Response</td><td>&lt; 10s</td><td>7B model, max 200 tokens</td></tr>
+            <tr><td>Concurrent Users</td><td>100 (MVP)</td><td>单机 FastAPI + uvicorn workers</td></tr>
+            <tr><td>Graph Query</td><td>&lt; 500ms</td><td>预计算 + Redis 缓存</td></tr>
+        </table>
+    </section>
+
+    <!-- Scalability -->
+    <section>
+        <h2>Scalability Roadmap</h2>
+
+        <div class="highlight">
+            <h4>MVP &rarr; Scale 路径</h4>
+            <p>MVP 单机架构，但代码层面做好以下预留：</p>
+        </div>
+
+        <table>
+            <tr><th>Phase</th><th>Users</th><th>Infra</th></tr>
+            <tr><td>MVP</td><td>~100</td><td>单 ECS + SQLite + Ollama</td></tr>
+            <tr><td>v1.1</td><td>~1,000</td><td>ECS + PostgreSQL + Redis + Ollama GPU</td></tr>
+            <tr><td>v2.0</td><td>~10,000</td><td>K8s + PG集群 + vLLM + CDN + 消息队列</td></tr>
+            <tr><td>v3.0</td><td>~100,000+</td><td>微服务 + 分库分表 + 多区域部署</td></tr>
+        </table>
+    </section>
+
+</div>
+
+</body>
+</html>
