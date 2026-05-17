@@ -42,14 +42,14 @@ function getUserIdFromToken(): string | null {
   } catch { return null }
 }
 
-function getStoredUser(): { name: string; avatar: AvatarConfig; id?: string } | null {
+function getStoredUser(): { name: string; avatar: AvatarConfig; id?: string; invite_code?: string } | null {
   try {
     const stored = localStorage.getItem('uchat_user')
     if (stored) {
       const data = JSON.parse(stored)
       const avatar = data.avatar || data.avatar_config
       if (!avatar) return null
-      return { name: data.nickname || '我', avatar, id: data.id || data.user_id || getUserIdFromToken() || undefined }
+      return { name: data.nickname || '我', avatar, id: data.id || data.user_id || getUserIdFromToken() || undefined, invite_code: data.invite_code }
     }
   } catch { /* ignore */ }
   return null
@@ -1668,7 +1668,7 @@ export default function LiveChat() {
                       return good.reduce((best, m) => m.content.length > best.content.length ? m : best).content
                     })()}
                     depth={conversationDepth}
-                    inviteCode={'UCHT' + userId.toUpperCase().slice(0, 4).padEnd(4, 'X')}
+                    inviteCode={storedUser?.invite_code || ''}
                   />
                 ) : (
                   <LiveChatHighlightCard
@@ -1679,7 +1679,7 @@ export default function LiveChat() {
                     highlight={messages.filter((m) => m.content.length > 5).slice(-1)[0]?.content || '一段有趣的对话'}
                     topic={topic || undefined}
                     duration={messages.length > 0 ? `${Math.max(1, Math.round((Date.now() - messages[0].time) / 60000))} 分钟` : undefined}
-                    inviteCode={'UCHT' + userId.toUpperCase().slice(0, 4).padEnd(4, 'X')}
+                    inviteCode={storedUser?.invite_code || ''}
                   />
                 )}
               </div>
@@ -1735,7 +1735,7 @@ export default function LiveChat() {
                       link.href = canvas.toDataURL('image/png')
                       link.click()
                       const score = Math.min(60 + conversationDepth * 4 + messages.length, 98)
-                      const inviteCode = 'UCHT' + userId.toUpperCase().slice(0, 4).padEnd(4, 'X')
+                      const inviteCode = storedUser?.invite_code || ''
                       const caption = `在 µChat 遇到了一个聊得来的人，连接指数 ${score} ✦ 一次有深度的对话胜过一百个点赞\n\n邀请码 ${inviteCode} → uchat.app`
                       try { await navigator.clipboard.writeText(caption) } catch { /* clipboard may fail in some contexts */ }
                       setHighlightSaved(true)

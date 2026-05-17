@@ -365,7 +365,7 @@ export default function Profile() {
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => {
-              const code = inviteCode || 'UCHT' + (nickname || 'ANON').slice(0, 2).toUpperCase().padEnd(2, 'X') + Math.random().toString(36).substring(2, 4).toUpperCase()
+              const code = inviteCode
               navigator.clipboard.writeText(`找到一个只靠邀请码才能进的社交 app，里面的人都挺有意思\n\n不刷屏，只深聊 · µChat\n邀请码 ${code} → uchat.app`).catch(() => {})
             }}
             className="px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 text-[12px]"
