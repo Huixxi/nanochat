@@ -14,6 +14,7 @@ interface UserData {
   nickname: string
   avatar: AvatarConfig
   answers: Record<string, string>
+  invite_code?: string
 }
 
 const DEFAULT_AVATAR: AvatarConfig = {
@@ -67,7 +68,9 @@ export default function SharePreview() {
   const avatar = userData?.avatar || DEFAULT_AVATAR
   const answers = userData?.answers || {}
   const tags = [answers.field, answers.interest, answers.energy, answers.style].filter(Boolean)
-  const [inviteCode] = useState(() => 'UCHT' + Math.random().toString(36).substring(2, 6).toUpperCase())
+  const [inviteCode] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('uchat_user') || '{}').invite_code || '' } catch { return '' }
+  })
 
   const getWeChatCaption = useCallback((type: CardType): string => {
     const code = inviteCode

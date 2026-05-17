@@ -161,7 +161,7 @@ function WeeklyTopicCard({ topic, isNewUser, navigate }: { topic: { id?: string;
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
-                const code = 'UCHT' + Math.random().toString(36).substring(2, 6).toUpperCase()
+                const code = JSON.parse(localStorage.getItem('uchat_user') || '{}').invite_code || ''
                 navigator.clipboard.writeText(`µChat 本周话题：${topic.question}\n\n邀请码 ${code} → uchat.app`).then(() => {
                   setTopicShared(true)
                   setTimeout(() => setTopicShared(false), 2000)

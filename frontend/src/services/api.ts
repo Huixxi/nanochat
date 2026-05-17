@@ -26,13 +26,14 @@ function authHeaders(): Record<string, string> {
 export async function register(
   inviteCode: string,
   nickname: string,
+  password: string,
   avatarConfig: Record<string, unknown> | object,
   answers?: Record<string, string>
 ) {
   const res = await fetch(`${API_BASE}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ invite_code: inviteCode, nickname, avatar_config: avatarConfig, answers: answers || {} }),
+    body: JSON.stringify({ invite_code: inviteCode, nickname, password, avatar_config: avatarConfig, answers: answers || {} }),
   })
   if (!res.ok) throw new Error((await res.json()).detail || 'Registration failed')
   const data = await res.json()
@@ -40,11 +41,11 @@ export async function register(
   return data
 }
 
-export async function login(nickname: string) {
+export async function login(nickname: string, password: string) {
   const res = await fetch(`${API_BASE}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nickname }),
+    body: JSON.stringify({ nickname, password }),
   })
   if (!res.ok) throw new Error((await res.json()).detail || '用户不存在')
   const data = await res.json()

@@ -709,6 +709,7 @@ export default function Landing() {
   const [inviterTilt, setInviterTilt] = useState<HeadTilt>('none')
   const [showLogin, setShowLogin] = useState(false)
   const [loginNickname, setLoginNickname] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
   const [loginError, setLoginError] = useState('')
   const navigate = useNavigate()
@@ -734,7 +735,13 @@ export default function Landing() {
     if (!urlCode) return
     setCode(urlCode)
     validateInvite(urlCode).then((res) => {
-      if (res.valid) setInviter(makeInviterDisplay(urlCode))
+      if (res.valid) {
+        if (res.inviter) {
+          setInviter({ name: res.inviter.nickname, avatar: res.inviter.avatar_config || makeInviterDisplay(urlCode).avatar })
+        } else {
+          setInviter(makeInviterDisplay(urlCode))
+        }
+      }
     }).catch(() => {})
   }, [searchParams])
 
@@ -779,12 +786,18 @@ export default function Landing() {
     try {
       const res = await validateInvite(trimmed)
       if (res.valid) {
-        setInviter(makeInviterDisplay(trimmed))
+        if (res.inviter) {
+          setInviter({
+            name: res.inviter.nickname,
+            avatar: res.inviter.avatar_config || makeInviterDisplay(trimmed).avatar,
+          })
+        } else {
+          setInviter(makeInviterDisplay(trimmed))
+        }
         setValidating(false)
         return
       }
     } catch {
-      // Backend unavailable — accept UCHT/UCHAT prefix codes offline
       if (trimmed.startsWith('UCHT') || trimmed.startsWith('UCHAT')) {
         setInviter(makeInviterDisplay(trimmed))
         setValidating(false)
@@ -805,11 +818,11 @@ export default function Landing() {
 
   const handleLogin = async () => {
     const name = loginNickname.trim()
-    if (!name) return
+    if (!name || !loginPassword) return
     setLoginLoading(true)
     setLoginError('')
     try {
-      const data = await login(name)
+      const data = await login(name, loginPassword)
       localStorage.setItem('uchat_user', JSON.stringify({
         id: data.user_id,
         nickname: data.nickname,
@@ -1097,12 +1110,19 @@ export default function Landing() {
                   exit={{ opacity: 0, height: 0 }}
                   className="mt-6 w-full max-w-[260px] overflow-hidden"
                 >
-                  <div className="border-t border-zinc-800 pt-4">
+                  <div className="border-t border-zinc-800 pt-4 space-y-2">
                     <input
                       type="text"
                       value={loginNickname}
                       onChange={(e) => { setLoginNickname(e.target.value); setLoginError('') }}
-                      placeholder="输入你的昵称"
+                      placeholder="昵称"
+                      className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-center text-sm text-white placeholder:text-zinc-600 outline-none focus:border-zinc-600 transition-colors"
+                    />
+                    <input
+                      type="password"
+                      value={loginPassword}
+                      onChange={(e) => { setLoginPassword(e.target.value); setLoginError('') }}
+                      placeholder="密码"
                       className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-center text-sm text-white placeholder:text-zinc-600 outline-none focus:border-zinc-600 transition-colors"
                       onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                     />
@@ -1110,7 +1130,7 @@ export default function Landing() {
                     <button
                       onClick={handleLogin}
                       disabled={loginLoading}
-                      className="w-full mt-2 py-3 bg-zinc-800 rounded-xl text-white font-medium text-sm disabled:opacity-50"
+                      className="w-full py-3 bg-zinc-800 rounded-xl text-white font-medium text-sm disabled:opacity-50"
                     >
                       {loginLoading ? '登录中...' : '登录'}
                     </button>

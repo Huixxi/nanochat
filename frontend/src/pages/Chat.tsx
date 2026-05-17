@@ -1111,7 +1111,7 @@ export default function Chat() {
                       return good.reduce((best, m) => m.content.length > best.content.length ? m : best).content
                     })()}
                     depth={conversationDepth}
-                    inviteCode={'UCHT' + personaId.toUpperCase().slice(0, 4).padEnd(4, 'X')}
+                    inviteCode={JSON.parse(localStorage.getItem('uchat_user') || '{}').invite_code || ''}
                   />
                 ) : (
                   <ChatHighlightCard
@@ -1120,7 +1120,7 @@ export default function Chat() {
                     userAvatar={USER_AVATAR}
                     messages={messages.filter((m) => !m.streaming).slice(-4).map((m) => ({ content: m.content, role: m.role }))}
                     topic={topic || undefined}
-                    inviteCode={'UCHT' + personaId.toUpperCase().slice(0, 4).padEnd(4, 'X')}
+                    inviteCode={JSON.parse(localStorage.getItem('uchat_user') || '{}').invite_code || ''}
                   />
                 )}
               </div>
@@ -1175,7 +1175,7 @@ export default function Chat() {
                       link.href = canvas.toDataURL('image/png')
                       link.click()
                       const score = Math.min(60 + conversationDepth * 4 + messages.filter((m) => !m.streaming).length, 98)
-                      const inviteCode = 'UCHT' + personaId.toUpperCase().slice(0, 4).padEnd(4, 'X')
+                      const inviteCode = JSON.parse(localStorage.getItem('uchat_user') || '{}').invite_code || ''
                       const caption = `和 ${persona.name} 的一次深度对话 ✦ 连接指数 ${score}\n\n好的对话让人忘记技术，只记住思考\n邀请码 ${inviteCode} → uchat.app`
                       try { await navigator.clipboard.writeText(caption) } catch { /* clipboard may fail */ }
                       setHighlightSaved(true)

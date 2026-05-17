@@ -41,4 +41,11 @@ async def validate_invite(code: str, db: Session = Depends(get_db)):
         Invitation.code == code.upper(),
         Invitation.used_by.is_(None),
     ).first()
-    return {"valid": invitation is not None}
+    if not invitation:
+        return {"valid": False}
+    inviter = None
+    if invitation.created_by and invitation.created_by != "system":
+        user = db.query(User).filter(User.id == invitation.created_by).first()
+        if user:
+            inviter = {"nickname": user.nickname, "avatar_config": user.avatar_config}
+    return {"valid": True, "inviter": inviter}

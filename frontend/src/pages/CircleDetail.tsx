@@ -112,7 +112,7 @@ export default function CircleDetail() {
   }, [id])
 
   const handleSharePost = (post: any) => {
-    const code = 'UCHT' + Math.random().toString(36).substring(2, 6).toUpperCase()
+    const code = JSON.parse(localStorage.getItem('uchat_user') || '{}').invite_code || ''
     const text = `${circle?.icon || ''} ${circle?.name || '圈子'}里有人说：\n\n"${post.content.slice(0, 80)}${post.content.length > 80 ? '...' : ''}"\n\n— µChat · 亚熟人社交\n邀请码 ${code} → uchat.app`
     navigator.clipboard.writeText(text).then(() => {
       setCopiedPostId(post.id)
@@ -211,7 +211,7 @@ export default function CircleDetail() {
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={() => {
-                const code = 'UCHT' + Math.random().toString(36).substring(2, 6).toUpperCase()
+                const code = JSON.parse(localStorage.getItem('uchat_user') || '{}').invite_code || ''
                 navigator.clipboard.writeText(`${circle.icon} 来 µChat「${circle.name}」看看？${circle.code_name ? `（${circle.code_name}）` : ''}\n\n${circle.member_count} 人在讨论\n\n邀请码 ${code} → uchat.app`).catch(() => {})
               }}
               className="w-7 h-7 flex items-center justify-center rounded-full border border-zinc-800 hover:border-zinc-700 transition-colors"

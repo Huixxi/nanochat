@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+import hashlib
+import secrets
 from models.database import get_db
 from models.user import User
 from models.persona import Persona
@@ -8,11 +10,21 @@ from models.invitation import Invitation
 from services.auth import create_access_token
 import uuid
 
+def hash_password(password: str) -> str:
+    salt = secrets.token_hex(16)
+    h = hashlib.sha256((salt + password).encode()).hexdigest()
+    return f"{salt}${h}"
+
+def verify_password(password: str, hashed: str) -> bool:
+    salt, h = hashed.split("$", 1)
+    return hashlib.sha256((salt + password).encode()).hexdigest() == h
+
 router = APIRouter()
 
 
 class RegisterRequest(BaseModel):
     nickname: str
+    password: str
     invite_code: str
     avatar_config: dict = {}
     answers: dict = {}
@@ -20,6 +32,7 @@ class RegisterRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     nickname: str
+    password: str
 
 
 class GuestRequest(BaseModel):
@@ -41,6 +54,7 @@ async def register(req: RegisterRequest, db: Session = Depends(get_db)):
     user_invite_code = uuid.uuid4().hex[:8].upper()
     user = User(
         nickname=req.nickname,
+        hashed_password=hash_password(req.password),
         avatar_config=req.avatar_config,
         invite_code=user_invite_code,
         invited_by=invitation.created_by,
@@ -49,7 +63,8 @@ async def register(req: RegisterRequest, db: Session = Depends(get_db)):
     db.flush()
     invitation.used_by = user.id
 
-    for _ in range(3):
+    db.add(Invitation(code=user_invite_code, created_by=user.id))
+    for _ in range(2):
         db.add(Invitation(code=uuid.uuid4().hex[:8].upper(), created_by=user.id))
 
     if req.answers:
@@ -72,6 +87,8 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.nickname == req.nickname).first()
     if not user:
         raise HTTPException(status_code=401, detail="用户不存在")
+    if not user.hashed_password or not verify_password(req.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="密码错误")
 
     token = create_access_token(user.id, user.nickname)
     return {
@@ -94,7 +111,8 @@ async def guest_login(req: GuestRequest, db: Session = Depends(get_db)):
     )
     db.add(user)
     db.flush()
-    for _ in range(3):
+    db.add(Invitation(code=user_invite_code, created_by=user.id))
+    for _ in range(2):
         db.add(Invitation(code=uuid.uuid4().hex[:8].upper(), created_by=user.id))
     db.commit()
     db.refresh(user)

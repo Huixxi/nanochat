@@ -201,6 +201,7 @@ export default function CreateAvatar() {
   const [step, setStep] = useState<Step>('appearance')
   const [questionIdx, setQuestionIdx] = useState(0)
   const [nickname, setNickname] = useState('')
+  const [password, setPassword] = useState('')
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [previewEmotion, setPreviewEmotion] = useState<'neutral' | 'happy' | 'surprised'>('neutral')
   const [previewTilt, setPreviewTilt] = useState<HeadTilt>('none')
@@ -281,6 +282,9 @@ export default function CreateAvatar() {
 
   const saveAndCelebrate = async () => {
     const finalNickname = nickname || '匿名用户'
+    if (!isEditMode && !password) {
+      return
+    }
     const userData = { nickname: finalNickname, avatar: config, answers, createdAt: Date.now() }
     localStorage.setItem('uchat_user', JSON.stringify(userData))
 
@@ -298,18 +302,18 @@ export default function CreateAvatar() {
       const inviteCode = inviterData ? JSON.parse(inviterData).code : null
       let result: any
       if (inviteCode) {
-        result = await register(inviteCode, finalNickname, config)
+        result = await register(inviteCode, finalNickname, password, config)
       } else {
         result = await guestLogin(finalNickname, config)
       }
       if (result?.user_id) {
-        localStorage.setItem('uchat_user', JSON.stringify({ ...userData, id: result.user_id }))
+        localStorage.setItem('uchat_user', JSON.stringify({ ...userData, id: result.user_id, invite_code: result.invite_code }))
       }
     } catch {
       try {
         const result = await guestLogin(finalNickname, config)
         if (result?.user_id) {
-          localStorage.setItem('uchat_user', JSON.stringify({ ...userData, id: result.user_id }))
+          localStorage.setItem('uchat_user', JSON.stringify({ ...userData, id: result.user_id, invite_code: result.invite_code }))
         }
       } catch { /* offline — continue without backend */ }
     }
@@ -740,6 +744,16 @@ export default function CreateAvatar() {
           maxLength={12}
           className="mt-3 text-center text-base font-medium bg-transparent text-white placeholder:text-zinc-600 outline-none border-b border-zinc-800 pb-1 w-44 focus:border-zinc-600 transition-colors"
         />
+        {!isEditMode && (
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="设置密码"
+            maxLength={32}
+            className="mt-2 text-center text-sm bg-transparent text-white placeholder:text-zinc-600 outline-none border-b border-zinc-800 pb-1 w-44 focus:border-zinc-600 transition-colors"
+          />
+        )}
       </div>
 
       {/* Category tabs */}

@@ -394,7 +394,7 @@ export default function Graph() {
                   onClick={() => {
                     const me = nodes.find((n) => n.id === 'me')
                     const total = nodes.length - 1
-                    const code = 'UCHT' + Math.random().toString(36).substring(2, 6).toUpperCase()
+                    const code = JSON.parse(localStorage.getItem('uchat_user') || '{}').invite_code || ''
                     const text = `我在 µChat 的信任网络已覆盖 ${total} 人 ✦ ${me?.name || '我'} 和 ${selectedNode.name} 是${DEGREE_LABELS[selectedNode.degree]}\n\n邀请码 ${code} → uchat.app`
                     navigator.clipboard.writeText(text).then(() => {
                       setShareCopied(true)
