@@ -769,7 +769,7 @@ export default function Landing() {
     const trimmed = code.trim().toUpperCase()
 
     if (!trimmed) {
-      navigate('/create')
+      setError('请输入邀请码')
       return
     }
 

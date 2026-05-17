@@ -290,3 +290,9 @@ export async function validateInvite(code: string) {
   const res = await fetch(`${API_BASE}/api/invites/validate/${code}`)
   return res.json()
 }
+
+export async function getMyInviteCodes() {
+  const res = await fetch(`${API_BASE}/api/invites/my-codes`, { headers: authHeaders() })
+  if (!res.ok) return []
+  return res.json()
+}

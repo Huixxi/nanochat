@@ -49,7 +49,8 @@ async def register(req: RegisterRequest, db: Session = Depends(get_db)):
     db.flush()
     invitation.used_by = user.id
 
-    db.add(Invitation(code=user_invite_code, created_by=user.id))
+    for _ in range(3):
+        db.add(Invitation(code=uuid.uuid4().hex[:8].upper(), created_by=user.id))
 
     if req.answers:
         db.add(Persona(user_id=user.id, answers=req.answers))
@@ -93,7 +94,8 @@ async def guest_login(req: GuestRequest, db: Session = Depends(get_db)):
     )
     db.add(user)
     db.flush()
-    db.add(Invitation(code=user_invite_code, created_by=user.id))
+    for _ in range(3):
+        db.add(Invitation(code=uuid.uuid4().hex[:8].upper(), created_by=user.id))
     db.commit()
     db.refresh(user)
 

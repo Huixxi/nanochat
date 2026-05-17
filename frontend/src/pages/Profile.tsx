@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import AnimatedAvatar, { AvatarConfig, Emotion, GazeDirection, HeadTilt } from '../components/AnimatedAvatar'
-import { getAIImpression, getMe, getMyStats } from '../services/api'
+import { getAIImpression, getMe, getMyStats, getMyInviteCodes } from '../services/api'
 
 interface UserData {
   nickname: string
@@ -82,8 +82,15 @@ export default function Profile() {
   }, [])
 
   useEffect(() => {
+    getMyInviteCodes().then(codes => {
+      const available = codes.find((c: { code: string; used: boolean }) => !c.used)
+      if (available) setInviteCode(available.code)
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
     getMe().then(data => {
-      if (data.invite_code) setInviteCode(data.invite_code)
+      if (!inviteCode && data.invite_code) setInviteCode(data.invite_code)
       if (data.nickname || data.avatar_config) {
         const existing = JSON.parse(localStorage.getItem('uchat_user') || '{}')
         localStorage.setItem('uchat_user', JSON.stringify({
