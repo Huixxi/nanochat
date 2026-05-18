@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import AnimatedAvatar, { AvatarConfig, Emotion, GazeDirection, HeadTilt } from '../components/AnimatedAvatar'
 import { getConversations } from '../services/api'
+import { useGlobalSocket } from '../contexts/SocketContext'
 
 const AI_AVATARS: Record<string, { name: string; avatar: AvatarConfig }> = {
   spark: { name: 'Spark', avatar: { face: 'oval', hair: 'side-part', hairColor: '#e4e4e7', eyebrows: 'natural', eyes: 'almond', mouth: 'calm', ears: 'normal' } },
@@ -85,12 +86,21 @@ export default function Conversations() {
   const [searchQuery, setSearchQuery] = useState('')
   const [conversations, setConversations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const { lastMessage, unreadByConv } = useGlobalSocket()
 
   useEffect(() => {
     getConversations()
       .then(data => { setConversations(data); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])
+
+  // Re-fetch conversation list when a new message arrives via global socket
+  useEffect(() => {
+    if (!lastMessage) return
+    getConversations()
+      .then(data => setConversations(data))
+      .catch(() => {})
+  }, [lastMessage])
 
   const getConvName = (conv: any): string => {
     if (conv.type === 'ai') return AI_AVATARS[conv.ai_persona]?.name || conv.name || 'AI'
@@ -117,7 +127,11 @@ export default function Conversations() {
   const aiConvs = conversations.filter(c => c.type === 'ai')
   const peopleConvs = conversations.filter(c => c.type === 'direct' || c.type === 'group')
 
-  const totalUnread = conversations.reduce((sum: number, c: any) => sum + (c.unread || 0), 0)
+  const getUnread = (conv: any): number => {
+    const socketUnread = unreadByConv[conv.id] || 0
+    return Math.max(conv.unread || 0, socketUnread)
+  }
+  const totalUnread = conversations.reduce((sum: number, c: any) => sum + getUnread(c), 0)
 
   const filteredConversations = searchQuery.trim()
     ? conversations.filter((c) => {
@@ -177,7 +191,7 @@ export default function Conversations() {
                 onClick={() => handleTap(c)}
                 className="flex flex-col items-center gap-1.5 flex-shrink-0"
               >
-                <IdleAvatar config={getConvAvatar(c)} size={40} hasUnread={(c.unread || 0) > 0} />
+                <IdleAvatar config={getConvAvatar(c)} size={40} hasUnread={getUnread(c) > 0} />
                 <span className="text-[10px] text-zinc-500 w-14 text-center truncate">{getConvName(c)}</span>
               </button>
             ))}
@@ -197,7 +211,7 @@ export default function Conversations() {
                 className="flex flex-col items-center gap-1.5 flex-shrink-0"
               >
                 <div className="relative">
-                  <IdleAvatar config={getConvAvatar(c)} size={48} hasUnread={(c.unread || 0) > 0} />
+                  <IdleAvatar config={getConvAvatar(c)} size={48} hasUnread={getUnread(c) > 0} />
                   <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border-2 border-black" />
                 </div>
                 <span className="text-[10px] text-zinc-500 w-12 text-center truncate">{getConvName(c)}</span>
@@ -213,7 +227,7 @@ export default function Conversations() {
           {filteredConversations.map((conv) => {
             const avatar = getConvAvatar(conv)
             const name = getConvName(conv)
-            const unread = conv.unread || 0
+            const unread = getUnread(conv)
             return (
               <motion.button
                 key={conv.id}

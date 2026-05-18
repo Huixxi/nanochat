@@ -109,22 +109,58 @@ async def get_graph(
 
     add_node(user, 0)
 
-    # Inviter chain (upward)
-    current = user
-    deg = 1
-    while current.invited_by and deg <= 3:
-        inviter = db.query(User).filter(User.id == current.invited_by).first()
-        if not inviter or inviter.id in visited:
-            break
-        add_node(inviter, deg)
-        edges.append({"from": current.id, "to": inviter.id})
-        current = inviter
-        deg += 1
+    # edges use "from" = inviter, "to" = invitee (direction of trust flow)
 
-    # People invited by this user (downward)
-    invitees = db.query(User).filter(User.invited_by == user.id).limit(20).all()
-    for inv in invitees:
+    # === Degree 1: my inviter + people I invited ===
+
+    # Inviter (upward)
+    inviter = None
+    if user.invited_by:
+        inviter = db.query(User).filter(User.id == user.invited_by).first()
+        if inviter:
+            add_node(inviter, 1)
+            edges.append({"from": inviter.id, "to": user.id, "relation": "invited"})
+
+    # People I invited (downward)
+    my_invitees = db.query(User).filter(User.invited_by == user.id).limit(30).all()
+    for inv in my_invitees:
         add_node(inv, 1)
-        edges.append({"from": user.id, "to": inv.id})
+        edges.append({"from": user.id, "to": inv.id, "relation": "invited"})
+
+    # === Degree 2: siblings (other people invited by my inviter) + invitees of my invitees ===
+
+    # Siblings: other people my inviter also invited
+    if inviter:
+        siblings = db.query(User).filter(
+            User.invited_by == inviter.id,
+            User.id != user.id,
+        ).limit(20).all()
+        for sib in siblings:
+            add_node(sib, 2)
+            edges.append({"from": inviter.id, "to": sib.id, "relation": "invited"})
+
+    # Invitees of my invitees
+    for inv in my_invitees:
+        sub_invitees = db.query(User).filter(User.invited_by == inv.id).limit(10).all()
+        for sub in sub_invitees:
+            add_node(sub, 2)
+            edges.append({"from": inv.id, "to": sub.id, "relation": "invited"})
+
+    # === Degree 3: inviter's inviter + invitees of siblings ===
+
+    # Inviter's inviter (grandparent invited my inviter)
+    if inviter and inviter.invited_by:
+        grandparent = db.query(User).filter(User.id == inviter.invited_by).first()
+        if grandparent:
+            add_node(grandparent, 3)
+            edges.append({"from": grandparent.id, "to": inviter.id, "relation": "invited"})
+
+    # Invitees of degree-2 nodes (limited)
+    degree2_ids = [n["id"] for n in nodes if n["degree"] == 2]
+    for d2_id in degree2_ids[:10]:
+        d3_invitees = db.query(User).filter(User.invited_by == d2_id).limit(5).all()
+        for d3 in d3_invitees:
+            add_node(d3, 3)
+            edges.append({"from": d2_id, "to": d3.id, "relation": "invited"})
 
     return {"nodes": nodes, "edges": edges}

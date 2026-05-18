@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import AnimatedAvatar, { AvatarConfig } from './AnimatedAvatar'
+import { useGlobalSocket } from '../contexts/SocketContext'
 
 function getUserAvatar(): AvatarConfig | null {
   try {
@@ -79,6 +80,7 @@ const TABS = [
 export default function TabBar() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { unreadCount } = useGlobalSocket()
   const [userAvatar, setUserAvatar] = useState<AvatarConfig | null>(null)
 
   useEffect(() => {
@@ -109,9 +111,9 @@ export default function TabBar() {
                 ) : (
                   tab.icon(active)
                 )}
-                {tab.badge > 0 && (
+                {tab.path === '/live' && unreadCount > 0 && (
                   <div className="absolute -top-1.5 -right-2 min-w-[16px] h-4 rounded-full bg-white flex items-center justify-center">
-                    <span className="text-[9px] font-medium text-black px-1">{tab.badge}</span>
+                    <span className="text-[9px] font-medium text-black px-1">{unreadCount}</span>
                   </div>
                 )}
                 {'live' in tab && tab.live && !active && (

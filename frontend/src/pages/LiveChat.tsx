@@ -8,6 +8,7 @@ import LiveChatHighlightCard from '../components/LiveChatHighlightCard'
 import { moderateContent } from '../services/moderation'
 import ConversationShareCard from '../components/ConversationShareCard'
 import { getToken, getMessages, getConversations, markRead, sendMessage as apiSendMessage } from '../services/api'
+import { useGlobalSocket } from '../contexts/SocketContext'
 
 interface Reaction {
   emoji: string
@@ -256,6 +257,11 @@ export default function LiveChat() {
   const convId = searchParams.get('conv') || ''
   const peerState = (location.state as { peer?: { name: string; avatar: AvatarConfig; id: string } })?.peer
   const storedUser = getStoredUser()
+  const { clearUnread, lastMessage } = useGlobalSocket()
+
+  useEffect(() => {
+    if (convId) clearUnread(convId)
+  }, [convId, clearUnread, lastMessage])
 
   const userId = storedUser?.id || 'me'
   const user = storedUser

@@ -4,6 +4,7 @@ import Landing from './pages/Landing'
 import TabBar from './components/TabBar'
 import AuthGuard from './components/AuthGuard'
 import ErrorBoundary from './components/ErrorBoundary'
+import { SocketProvider } from './contexts/SocketContext'
 
 const CreateAvatar = lazy(() => import('./pages/CreateAvatar'))
 const Discover = lazy(() => import('./pages/Discover'))
@@ -66,7 +67,9 @@ function AnimatedRoutes() {
 function App() {
   return (
     <BrowserRouter>
-      <AnimatedRoutes />
+      <SocketProvider>
+        <AnimatedRoutes />
+      </SocketProvider>
     </BrowserRouter>
   )
 }

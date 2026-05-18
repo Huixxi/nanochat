@@ -17,6 +17,7 @@ interface GraphEdge {
   from: string
   to: string
   strength: number
+  relation?: string
 }
 
 const DEFAULT_AVATAR: AvatarConfig = {
@@ -37,7 +38,7 @@ function useFloatingNodes(nodes: GraphNode[]) {
     const animate = (t: number) => {
       const next: Record<string, { dx: number; dy: number }> = {}
       nodes.forEach((n) => {
-        if (n.id === 'me') {
+        if (n.degree === 0) {
           next[n.id] = { dx: 0, dy: 0 }
           return
         }
@@ -131,6 +132,7 @@ export default function Graph() {
       from: e.from,
       to: e.to,
       strength: e.strength || 1,
+      relation: e.relation,
     }))
   }, [graphData])
 
@@ -161,6 +163,42 @@ export default function Graph() {
     const gaze: GazeDirection = selPos.x > myPos.x ? 'right' : 'left'
     return { emotion: 'happy', gaze, tilt: 'right' }
   }, [selectedNode, connectedTo, getNodePos])
+
+  // Build a description of the invite path from me to the selected node
+  const getRelationPath = useCallback((node: GraphNode): string => {
+    const meNode = nodes.find(n => n.degree === 0)
+    if (!meNode) return ''
+    const nameOf = (id: string) => nodes.find(n => n.id === id)?.name || '?'
+
+    // Check if I invited this person directly
+    const meInvitedThem = edges.find(e => e.from === meNode.id && e.to === node.id && e.relation === 'invited')
+    if (meInvitedThem) return `你邀请了 ${node.name}`
+
+    // Check if this person invited me
+    const theyInvitedMe = edges.find(e => e.from === node.id && e.to === meNode.id && e.relation === 'invited')
+    if (theyInvitedMe) return `${node.name} 邀请了你`
+
+    // Find intermediate path via edges (2 hops)
+    for (const e1 of edges) {
+      for (const e2 of edges) {
+        if (e1.to === e2.from || e1.from === e2.to) {
+          const mid = e1.to === e2.from ? e1.to : e1.from
+          // me -> mid -> target
+          if (e1.from === meNode.id && e2.to === node.id) {
+            return `你邀请 ${nameOf(mid)} → ${nameOf(mid)} 邀请 ${node.name}`
+          }
+          if (e1.to === meNode.id && e2.from === node.id) {
+            return `${node.name} 邀请 ${nameOf(mid)} → ${nameOf(mid)} 邀请你`
+          }
+          // target's inviter also invited me (siblings)
+          if (e1.to === meNode.id && e2.to === node.id && e1.from === e2.from) {
+            return `${nameOf(e1.from)} 同时邀请了你和 ${node.name}`
+          }
+        }
+      }
+    }
+    return `通过信任链连接`
+  }, [nodes, edges])
 
   const W = 400
   const H = 500
@@ -240,7 +278,7 @@ export default function Graph() {
             const cx = mx + (-dy / len) * (15 + edge.strength * 3)
             const cy = my + (dx / len) * (15 + edge.strength * 3)
             const pathD = `M ${fx} ${fy} Q ${cx} ${cy} ${tx} ${ty}`
-            const isFirstDegree = fromNode.id === 'me' || toNode.id === 'me'
+            const isFirstDegree = fromNode.degree === 0 || toNode.degree === 0
             const dotColor = isFirstDegree ? DEGREE_COLORS[1] : DEGREE_COLORS[Math.min(toNode.degree, 3)]
             return (
               <g key={i}>
@@ -272,7 +310,7 @@ export default function Graph() {
         {nodes.map((node) => {
           const pos = getNodePos(node)
           const dim = filterDegree !== null && node.degree !== filterDegree
-          const size = node.id === 'me' ? 52 : node.degree === 1 ? 42 : node.degree === 2 ? 34 : 28
+          const size = node.degree === 0 ? 52 : node.degree === 1 ? 42 : node.degree === 2 ? 34 : 28
           const isSelected = selectedNode?.id === node.id
           return (
             <motion.div
@@ -295,7 +333,7 @@ export default function Graph() {
             >
               <div className="flex flex-col items-center -translate-x-1/2">
                 <div className="relative">
-                  {node.id === 'me' && (
+                  {node.degree === 0 && (
                     <>
                       <div
                         className="absolute -inset-4 rounded-full animate-glow-breathe pointer-events-none"
@@ -336,7 +374,7 @@ export default function Graph() {
                   </AnimatePresence>
                   <AnimatedAvatar config={node.avatar} size={size} emotion={getNodeReaction(node).emotion} gaze={getNodeReaction(node).gaze} headTilt={getNodeReaction(node).tilt} engaged={isSelected || (!!selectedNode && connectedTo[selectedNode.id]?.includes(node.id))} />
                 </div>
-                <span className={`text-[10px] mt-1 ${node.id === 'me' ? 'text-white font-medium' : dim ? 'text-zinc-700' : 'text-zinc-500'}`}>
+                <span className={`text-[10px] mt-1 ${node.degree === 0 ? 'text-white font-medium' : dim ? 'text-zinc-700' : 'text-zinc-500'}`}>
                   {node.name}
                 </span>
               </div>
@@ -347,7 +385,7 @@ export default function Graph() {
 
       {/* Selected node detail card */}
       <AnimatePresence>
-        {selectedNode && selectedNode.id !== 'me' && (
+        {selectedNode && selectedNode.degree !== 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -359,24 +397,11 @@ export default function Graph() {
               <div className="flex-1">
                 <h3 className="text-sm font-medium text-white">{selectedNode.name}</h3>
                 <p className="text-[11px] text-zinc-500 mt-0.5">
-                  {DEGREE_LABELS[selectedNode.degree]} · 通过{selectedNode.degree === 1 ? '直接邀请' : '信任链'}连接
+                  {DEGREE_LABELS[selectedNode.degree]}
                 </p>
-                {/* Connection strength dots */}
-                <div className="flex gap-0.5 mt-1.5">
-                  {Array.from({ length: 5 }).map((_, i) => {
-                    const edge = edges.find((e) => (e.from === 'me' && e.to === selectedNode.id) || (e.to === 'me' && e.from === selectedNode.id)
-                      || (e.from === selectedNode.id) || (e.to === selectedNode.id))
-                    const strength = edge?.strength || 1
-                    return (
-                      <div
-                        key={i}
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{ background: i < strength ? '#a1a1aa' : '#27272a' }}
-                      />
-                    )
-                  })}
-                  <span className="text-[9px] text-zinc-600 ml-1">连接强度</span>
-                </div>
+                <p className="text-[10px] text-zinc-400 mt-1">
+                  {getRelationPath(selectedNode)}
+                </p>
               </div>
               <div className="flex flex-col gap-1.5 flex-shrink-0">
                 <motion.button
@@ -392,7 +417,7 @@ export default function Graph() {
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={() => {
-                    const me = nodes.find((n) => n.id === 'me')
+                    const me = nodes.find((n) => n.degree === 0)
                     const total = nodes.length - 1
                     const code = JSON.parse(localStorage.getItem('uchat_user') || '{}').invite_code || ''
                     const text = `我在 µChat 的信任网络已覆盖 ${total} 人 ✦ ${me?.name || '我'} 和 ${selectedNode.name} 是${DEGREE_LABELS[selectedNode.degree]}\n\n邀请码 ${code} → uchat.app`
