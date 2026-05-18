@@ -1,13 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
-import { io, Socket } from 'socket.io-client'
 import { motion, AnimatePresence } from 'framer-motion'
 import html2canvas from 'html2canvas'
 import AnimatedAvatar, { AvatarConfig, Emotion, HeadTilt, GazeDirection, GazeY } from '../components/AnimatedAvatar'
 import LiveChatHighlightCard from '../components/LiveChatHighlightCard'
 import { moderateContent } from '../services/moderation'
 import ConversationShareCard from '../components/ConversationShareCard'
-import { getToken, getMessages, getConversations, markRead, sendMessage as apiSendMessage } from '../services/api'
+import { getMessages, getConversations, markRead, sendMessage as apiSendMessage } from '../services/api'
 import { useGlobalSocket } from '../contexts/SocketContext'
 
 interface Reaction {
@@ -56,7 +55,6 @@ function getStoredUser(): { name: string; avatar: AvatarConfig; id?: string; inv
   return null
 }
 
-const API_WS = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8000' : '')
 
 function ConnectionThread({ active, intensity, direction = 'right', colorA, colorB, pulse }: {
   active: boolean; intensity: number; direction?: 'left' | 'right' | 'both'; colorA: string; colorB: string; pulse?: 'left' | 'right' | null
@@ -257,7 +255,7 @@ export default function LiveChat() {
   const convId = searchParams.get('conv') || ''
   const peerState = (location.state as { peer?: { name: string; avatar: AvatarConfig; id: string } })?.peer
   const storedUser = getStoredUser()
-  const { clearUnread, lastMessage } = useGlobalSocket()
+  const { clearUnread, lastMessage, socket: globalSocket, connected, joinRoom, sendMessage: socketSendMessage, sendTyping } = useGlobalSocket()
 
   useEffect(() => {
     if (convId) clearUnread(convId)
@@ -311,34 +309,27 @@ export default function LiveChat() {
   const [moderationWarning, setModerationWarning] = useState<string | null>(null)
   const [shareCardType, setShareCardType] = useState<'highlight' | 'conversation'>('conversation')
   const milestonesHit = useRef<Set<number>>(new Set())
-  const socketRef = useRef<Socket | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const highlightRef = useRef<HTMLDivElement>(null)
   const typingTimeout = useRef<ReturnType<typeof setTimeout>>()
 
   const peerId = peerState?.id || 'peer'
 
-  // Socket connection — depends only on userId and convId, NOT peer
+  // Join room via global socket when entering this chat
   useEffect(() => {
-    if (!userId || !convId) return
+    if (!convId) return
+    joinRoom(convId)
+    setJoined(connected)
+  }, [convId, connected, joinRoom])
 
-    const token = getToken()
-    if (!token) return
+  // Listen for incoming messages directly on the global socket (avoids React batching issues with lastMessage state)
+  useEffect(() => {
+    if (!globalSocket || !convId) return
 
-    const socket = io(API_WS, {
-      transports: ['websocket'],
-      auth: { token },
-    })
-    socketRef.current = socket
-
-    socket.on('connect', () => {
-      socket.emit('authenticate', { user_id: userId })
-      socket.emit('join_conversation', { conversation_id: convId })
-      setJoined(true)
-    })
-
-    socket.on('new_message', (data: { sender_id: string; content: string; sender_name: string }) => {
+    const handleNewMessage = (data: { conversation_id: string; sender_id: string; sender_name: string; content: string; id?: string; created_at?: string }) => {
+      if (data.conversation_id !== convId) return
       if (data.sender_id === userId) return
+
       const sentiment = detectSentiment(data.content)
       setMessages((prev) => {
         if (prev.length === 0) {
@@ -358,11 +349,11 @@ export default function LiveChat() {
           }, 1800)
         }
         return [...prev, {
-          id: Date.now().toString(),
+          id: data.id || Date.now().toString(),
           content: data.content,
           senderId: data.sender_id,
           senderName: data.sender_name || peerId,
-          time: Date.now(),
+          time: data.created_at ? new Date(data.created_at).getTime() : Date.now(),
         }]
       })
       setConversationDepth((d) => {
@@ -397,7 +388,7 @@ export default function LiveChat() {
       if (msgLen > 30) {
         setMeTilt('left')
         setMeGaze('left')
-        setTimeout(() => { if (!meSpeaking) setMeTilt('none') }, Math.min(800 + msgLen * 8, 2000))
+        setTimeout(() => { setMeTilt('none') }, Math.min(800 + msgLen * 8, 2000))
       }
 
       setMeGaze('center')
@@ -430,9 +421,10 @@ export default function LiveChat() {
         setMeGaze('left')
       }, speakDuration)
       setPeerTyping(false)
-    })
+    }
 
-    socket.on('typing', () => {
+    const handleTyping = (data: { user_id: string }) => {
+      if (data.user_id === userId) return
       setPeerTyping(true)
       setPeerEmotion('thinking')
       setPeerTilt('left')
@@ -449,14 +441,15 @@ export default function LiveChat() {
         setPeerTilt('none')
         setPeerGaze('right')
       }, 2000)
-    })
+    }
 
-    socket.on('disconnect', () => {
-      setJoined(false)
-    })
-
-    return () => { socket.disconnect(); socketRef.current = null }
-  }, [userId, convId])
+    globalSocket.on('new_message', handleNewMessage)
+    globalSocket.on('typing', handleTyping)
+    return () => {
+      globalSocket.off('new_message', handleNewMessage)
+      globalSocket.off('typing', handleTyping)
+    }
+  }, [globalSocket, convId, userId])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -689,9 +682,9 @@ export default function LiveChat() {
 
     const senderName = user?.name || '我'
 
-    // Send via socket (real-time broadcast + backend persists to DB)
-    if (socketRef.current?.connected) {
-      socketRef.current.emit('send_message', {
+    // Send via global socket (real-time broadcast + backend persists to DB)
+    if (connected) {
+      socketSendMessage({
         conversation_id: convId,
         content: text,
         sender_name: senderName,
@@ -783,7 +776,7 @@ export default function LiveChat() {
 
   const handleInputChange = (val: string) => {
     setInput(val)
-    socketRef.current?.emit('typing', { conversation_id: convId })
+    sendTyping(convId)
 
     if (typingPreviewRef.current) clearTimeout(typingPreviewRef.current)
     if (!meSpeaking && val.trim()) {

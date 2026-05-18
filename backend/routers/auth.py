@@ -7,7 +7,7 @@ from models.database import get_db
 from models.user import User
 from models.persona import Persona
 from models.invitation import Invitation
-from services.auth import create_access_token
+from services.auth import create_access_token, get_current_user
 import uuid
 
 def hash_password(password: str) -> str:
@@ -89,7 +89,9 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.nickname == req.nickname).first()
     if not user:
         raise HTTPException(status_code=401, detail="用户不存在")
-    if not user.hashed_password or not verify_password(req.password, user.hashed_password):
+    if not user.hashed_password:
+        raise HTTPException(status_code=401, detail="该账号未设置密码，请联系管理员")
+    if not verify_password(req.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="密码错误")
 
     token = create_access_token(user.id, user.nickname)
@@ -100,6 +102,27 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
         "invite_code": user.invite_code,
         "token": token,
     }
+
+
+class SetPasswordRequest(BaseModel):
+    password: str
+    old_password: str = ""
+
+
+@router.post("/set-password")
+async def set_password(
+    req: SetPasswordRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if user.hashed_password:
+        if not req.old_password or not verify_password(req.old_password, user.hashed_password):
+            raise HTTPException(status_code=400, detail="原密码错误")
+    if len(req.password) < 4:
+        raise HTTPException(status_code=400, detail="密码至少4位")
+    user.hashed_password = hash_password(req.password)
+    db.commit()
+    return {"message": "密码设置成功"}
 
 
 @router.post("/guest")
