@@ -43,6 +43,10 @@ class GuestRequest(BaseModel):
 
 @router.post("/register")
 async def register(req: RegisterRequest, db: Session = Depends(get_db)):
+    existing = db.query(User).filter(User.nickname == req.nickname).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="用户名已被使用")
+
     invitation = db.query(Invitation).filter(
         Invitation.code == req.invite_code.upper(),
     ).first()
@@ -101,6 +105,9 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
 @router.post("/guest")
 async def guest_login(req: GuestRequest, db: Session = Depends(get_db)):
     """Create a guest user (no invite code required). Supports progressive registration."""
+    existing = db.query(User).filter(User.nickname == req.nickname).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="用户名已被使用")
     user_invite_code = uuid.uuid4().hex[:8].upper()
     user = User(
         nickname=req.nickname,

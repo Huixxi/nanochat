@@ -689,18 +689,8 @@ export default function LiveChat() {
 
     const senderName = user?.name || '我'
 
-    // Persist via REST API (guaranteed delivery even if socket is down)
-    apiSendMessage(convId, text).then(() => {
-      // If socket is connected, notify room for real-time delivery
-      if (socketRef.current?.connected) {
-        socketRef.current.emit('send_message', {
-          conversation_id: convId,
-          content: text,
-          sender_name: senderName,
-          already_persisted: true,
-        })
-      }
-    }).catch(() => {
+    // Persist via REST API — backend broadcasts to room via socket automatically
+    apiSendMessage(convId, text).catch(() => {
       setModerationWarning('发送失败，请检查网络')
       setTimeout(() => setModerationWarning(null), 3000)
     })

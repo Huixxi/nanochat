@@ -9,7 +9,7 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    nickname = Column(String(50), nullable=False)
+    nickname = Column(String(50), nullable=False, unique=True)
     phone = Column(String(20), unique=True, nullable=True)
     avatar_config = Column(JSON, default=dict)
     invite_code = Column(String(8), unique=True)

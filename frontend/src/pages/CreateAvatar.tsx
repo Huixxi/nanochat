@@ -285,16 +285,23 @@ export default function CreateAvatar() {
     if (!isEditMode && !password) {
       return
     }
-    const userData = { nickname: finalNickname, avatar: config, answers, createdAt: Date.now() }
-    localStorage.setItem('uchat_user', JSON.stringify(userData))
 
     if (isEditMode) {
+      const existing = JSON.parse(localStorage.getItem('uchat_user') || '{}')
+      localStorage.setItem('uchat_user', JSON.stringify({
+        ...existing,
+        nickname: finalNickname,
+        avatar: config,
+      }))
       try {
         await updateProfile({ nickname: finalNickname, avatar_config: config })
       } catch { /* offline fallback — localStorage already updated */ }
       navigate('/profile')
       return
     }
+
+    const userData = { nickname: finalNickname, avatar: config, answers, createdAt: Date.now() }
+    localStorage.setItem('uchat_user', JSON.stringify(userData))
 
     setRegistering(true)
     try {

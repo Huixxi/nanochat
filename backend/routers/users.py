@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Optional
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -39,7 +39,10 @@ async def update_profile(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if req.nickname is not None:
+    if req.nickname is not None and req.nickname != user.nickname:
+        existing = db.query(User).filter(User.nickname == req.nickname, User.id != user.id).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="用户名已被使用")
         user.nickname = req.nickname
     if req.avatar_config is not None:
         user.avatar_config = req.avatar_config
@@ -49,6 +52,7 @@ async def update_profile(
         "user_id": user.id,
         "nickname": user.nickname,
         "avatar_config": user.avatar_config,
+        "invite_code": user.invite_code,
     }
 
 
