@@ -84,6 +84,8 @@ async def join_conversation(sid, data):
     room = data.get("conversation_id")
     if room:
         await sio.enter_room(sid, room)
+        user_id = connected_users.get(sid, "?")
+        print(f"[WS] {user_id} (sid={sid[:8]}) joined room {room}")
         await sio.emit("joined", {"conversation_id": room}, to=sid)
 
 
@@ -104,7 +106,10 @@ async def send_message(sid, data):
     already_persisted = data.get("already_persisted", False)
 
     if not room or not content:
+        print(f"[WS] send_message rejected: room={room}, content empty={not content}")
         return
+
+    print(f"[WS] send_message from {sender_name}({user_id}) in room {room}: {content[:30]}")
 
     msg_data = {
         "conversation_id": room,
@@ -124,6 +129,9 @@ async def send_message(sid, data):
             print(f"[WS] Failed to persist message: {e}")
         finally:
             db.close()
+
+    room_sids = list(sio.manager.get_participants("/", room))
+    print(f"[WS] Broadcasting new_message to room {room} ({len(room_sids)} sockets in room, skip {sid[:8]})")
 
     await sio.emit("new_message", msg_data, room=room, skip_sid=sid)
 

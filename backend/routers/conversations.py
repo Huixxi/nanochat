@@ -210,22 +210,6 @@ async def send_message(
     db.commit()
     db.refresh(msg)
 
-    # Broadcast via socket for real-time delivery to other participants
-    try:
-        from main import sio
-        msg_data = {
-            "conversation_id": conversation_id,
-            "sender_id": user.id,
-            "sender_name": user.nickname,
-            "content": msg.content,
-            "type": msg.msg_type,
-            "id": msg.id,
-            "created_at": msg.created_at.isoformat() if msg.created_at else None,
-        }
-        await sio.emit("new_message", msg_data, room=conversation_id)
-    except Exception:
-        pass
-
     return {
         "id": msg.id,
         "sender_id": msg.sender_id,

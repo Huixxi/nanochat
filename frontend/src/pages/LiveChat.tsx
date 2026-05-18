@@ -689,11 +689,20 @@ export default function LiveChat() {
 
     const senderName = user?.name || '我'
 
-    // Persist via REST API — backend broadcasts to room via socket automatically
-    apiSendMessage(convId, text).catch(() => {
-      setModerationWarning('发送失败，请检查网络')
-      setTimeout(() => setModerationWarning(null), 3000)
-    })
+    // Send via socket (real-time broadcast + backend persists to DB)
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('send_message', {
+        conversation_id: convId,
+        content: text,
+        sender_name: senderName,
+      })
+    } else {
+      // Fallback: REST API if socket disconnected
+      apiSendMessage(convId, text).catch(() => {
+        setModerationWarning('发送失败，请检查网络')
+        setTimeout(() => setModerationWarning(null), 3000)
+      })
+    }
 
     // Optimistic UI update — show message immediately
     const sentiment = detectSentiment(text)
