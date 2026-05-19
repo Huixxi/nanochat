@@ -873,24 +873,31 @@ export default function LiveChat() {
   }
 
   const startRecording = async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setModerationWarning('当前环境不支持录音（需要 HTTPS）')
+      setTimeout(() => setModerationWarning(null), 3000)
+      return
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream)
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      const recorder = new MediaRecorder(stream, { mimeType })
       audioChunksRef.current = []
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data)
       }
       recorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop())
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
-        const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' })
+        const ext = mimeType === 'audio/mp4' ? 'm4a' : 'webm'
+        const blob = new Blob(audioChunksRef.current, { type: mimeType })
+        const file = new File([blob], `voice-${Date.now()}.${ext}`, { type: mimeType })
         handleSendFile(file, 'voice')
       }
       mediaRecorderRef.current = recorder
       recorder.start()
       setIsRecording(true)
     } catch {
-      setModerationWarning('无法访问麦克风')
+      setModerationWarning('无法访问麦克风，请检查权限或使用 HTTPS')
       setTimeout(() => setModerationWarning(null), 3000)
     }
   }

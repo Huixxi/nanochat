@@ -62,7 +62,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     userIdRef.current = userId
 
     const socket = io(API_WS, {
-      transports: ['websocket'],
       auth: { token },
       forceNew: true,
     })
