@@ -913,7 +913,7 @@ export default function LiveChat() {
     if (messages.length === 0 || aiSuggesting) return
     setAiSuggesting(true)
     const history = messages.slice(-10).map((m) => ({
-      role: m.senderId === userId ? 'user' : 'assistant',
+      role: m.senderId === userId ? 'assistant' : 'user',
       content: m.content,
     }))
     const reply = await suggestReply(history)
