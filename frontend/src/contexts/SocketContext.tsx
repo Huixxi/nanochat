@@ -22,7 +22,7 @@ interface SocketContextValue {
   socket: Socket | null
   connected: boolean
   joinRoom: (conversationId: string) => void
-  sendMessage: (data: { conversation_id: string; content: string; sender_name: string }) => void
+  sendMessage: (data: { conversation_id: string; content: string; sender_name: string; type?: string }) => void
   sendTyping: (conversationId: string) => void
 }
 
@@ -111,7 +111,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const sendMessage = useCallback((data: { conversation_id: string; content: string; sender_name: string }) => {
+  const sendMessage = useCallback((data: { conversation_id: string; content: string; sender_name: string; type?: string }) => {
     if (socketRef.current?.connected) {
       socketRef.current.emit('send_message', data)
     }

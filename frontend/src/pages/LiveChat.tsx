@@ -6,7 +6,7 @@ import AnimatedAvatar, { AvatarConfig, Emotion, HeadTilt, GazeDirection, GazeY }
 import LiveChatHighlightCard from '../components/LiveChatHighlightCard'
 import { moderateContent } from '../services/moderation'
 import ConversationShareCard from '../components/ConversationShareCard'
-import { getMessages, getConversations, markRead, sendMessage as apiSendMessage } from '../services/api'
+import { getMessages, getConversations, markRead, sendMessage as apiSendMessage, uploadFile } from '../services/api'
 import { useGlobalSocket } from '../contexts/SocketContext'
 
 interface Reaction {
@@ -21,6 +21,7 @@ interface Message {
   senderName: string
   reaction?: Reaction
   time: number
+  type?: string
 }
 
 function formatTime(ts: number): string {
@@ -247,6 +248,60 @@ function detectSentiment(text: string): SentimentResult {
   }
 }
 
+function VoiceMessage({ src, isMe }: { src: string; isMe: boolean }) {
+  const [playing, setPlaying] = useState(false)
+  const [duration, setDuration] = useState(0)
+  const audioRef = useRef<HTMLAudioElement>(null)
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    const onLoaded = () => setDuration(Math.ceil(audio.duration))
+    const onEnded = () => setPlaying(false)
+    audio.addEventListener('loadedmetadata', onLoaded)
+    audio.addEventListener('ended', onEnded)
+    return () => {
+      audio.removeEventListener('loadedmetadata', onLoaded)
+      audio.removeEventListener('ended', onEnded)
+    }
+  }, [])
+
+  const toggle = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const audio = audioRef.current
+    if (!audio) return
+    if (playing) { audio.pause(); setPlaying(false) }
+    else { audio.play(); setPlaying(true) }
+  }
+
+  return (
+    <div className={`flex items-center gap-2 min-w-[120px] ${isMe ? 'bg-zinc-800 text-white' : 'bg-zinc-900 border border-zinc-800 text-zinc-300'} px-3 py-2.5 rounded-2xl ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`}>
+      <audio ref={audioRef} src={src} preload="metadata" />
+      <button onClick={toggle} className="w-7 h-7 flex items-center justify-center rounded-full bg-white/10 flex-shrink-0">
+        {playing ? (
+          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>
+        ) : (
+          <svg className="w-3 h-3 ml-0.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+        )}
+      </button>
+      <div className="flex-1 flex items-center gap-1.5">
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={i}
+            className={`w-0.5 rounded-full transition-all ${playing ? 'animate-pulse' : ''}`}
+            style={{
+              height: `${8 + Math.sin(i * 1.2) * 6}px`,
+              background: isMe ? '#a1a1aa' : '#71717a',
+              animationDelay: `${i * 0.1}s`,
+            }}
+          />
+        ))}
+      </div>
+      <span className="text-[11px] text-zinc-500 flex-shrink-0">{duration > 0 ? `${duration}"` : '...'}</span>
+    </div>
+  )
+}
+
 export default function LiveChat() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -308,6 +363,12 @@ export default function LiveChat() {
   const [milestoneLabel, setMilestoneLabel] = useState<string | null>(null)
   const [moderationWarning, setModerationWarning] = useState<string | null>(null)
   const [shareCardType, setShareCardType] = useState<'highlight' | 'conversation'>('conversation')
+  const [isRecording, setIsRecording] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const milestonesHit = useRef<Set<number>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
   const highlightRef = useRef<HTMLDivElement>(null)
@@ -326,7 +387,7 @@ export default function LiveChat() {
   useEffect(() => {
     if (!globalSocket || !convId) return
 
-    const handleNewMessage = (data: { conversation_id: string; sender_id: string; sender_name: string; content: string; id?: string; created_at?: string }) => {
+    const handleNewMessage = (data: { conversation_id: string; sender_id: string; sender_name: string; content: string; id?: string; created_at?: string; type?: string }) => {
       if (data.conversation_id !== convId) return
       if (data.sender_id === userId) return
 
@@ -354,6 +415,7 @@ export default function LiveChat() {
           senderId: data.sender_id,
           senderName: data.sender_name || peerId,
           time: data.created_at ? new Date(data.created_at).getTime() : Date.now(),
+          type: data.type,
         }]
       })
       setConversationDepth((d) => {
@@ -770,6 +832,75 @@ export default function LiveChat() {
     }, 800)
   }
 
+  const handleSendFile = async (file: File, type: 'image' | 'voice') => {
+    setUploading(true)
+    try {
+      const result = await uploadFile(file)
+      const senderName = user?.name || '我'
+      const msgId = Date.now().toString()
+
+      if (connected) {
+        socketSendMessage({
+          conversation_id: convId,
+          content: result.url,
+          sender_name: senderName,
+          type,
+        })
+      } else {
+        await apiSendMessage(convId, result.url, type)
+      }
+
+      setMessages((prev) => [...prev, {
+        id: msgId,
+        content: result.url,
+        senderId: userId,
+        senderName,
+        time: Date.now(),
+        type,
+      }])
+    } catch {
+      setModerationWarning('文件发送失败')
+      setTimeout(() => setModerationWarning(null), 3000)
+    }
+    setUploading(false)
+  }
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) handleSendFile(file, 'image')
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      audioChunksRef.current = []
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data)
+      }
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop())
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' })
+        handleSendFile(file, 'voice')
+      }
+      mediaRecorderRef.current = recorder
+      recorder.start()
+      setIsRecording(true)
+    } catch {
+      setModerationWarning('无法访问麦克风')
+      setTimeout(() => setModerationWarning(null), 3000)
+    }
+  }
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop()
+      setIsRecording(false)
+    }
+  }
+
   const typingPreviewRef = useRef<ReturnType<typeof setTimeout>>()
   const peerAnticipateRef = useRef<ReturnType<typeof setTimeout>>()
   const wasTyping = useRef(false)
@@ -838,12 +969,13 @@ export default function LiveChat() {
     if (!convId) return
     getMessages(convId).then((msgs) => {
       if (msgs && msgs.length > 0) {
-        setMessages(msgs.map((m: { id: string; content: string; sender_id: string; sender_name?: string; created_at?: string }) => ({
+        setMessages(msgs.map((m: { id: string; content: string; sender_id: string; sender_name?: string; created_at?: string; type?: string }) => ({
           id: m.id,
           content: m.content,
           senderId: m.sender_id,
           senderName: m.sender_name || '',
           time: m.created_at ? new Date(m.created_at).getTime() : Date.now(),
+          type: m.type,
         })))
       }
     }).catch(() => {})
@@ -865,12 +997,13 @@ export default function LiveChat() {
           const newMsgs = msgs
             .filter((m: { id: string }) => !existingIds.has(m.id))
             .filter((m: { sender_id: string }) => m.sender_id !== userId)
-            .map((m: { id: string; content: string; sender_id: string; sender_name?: string; created_at?: string }) => ({
+            .map((m: { id: string; content: string; sender_id: string; sender_name?: string; created_at?: string; type?: string }) => ({
               id: m.id,
               content: m.content,
               senderId: m.sender_id,
               senderName: m.sender_name || '',
               time: m.created_at ? new Date(m.created_at).getTime() : Date.now(),
+              type: m.type,
             }))
           if (newMsgs.length === 0) return prev
           return [...prev, ...newMsgs]
@@ -1376,13 +1509,28 @@ export default function LiveChat() {
                   <div className="relative max-w-[75%]">
                     <div
                       onClick={() => setReactionMenuId(reactionMenuId === msg.id ? null : msg.id)}
-                      className={`px-3.5 py-2.5 rounded-2xl text-[14px] leading-relaxed cursor-pointer touch-highlight ${
-                        isMe
-                          ? 'bg-zinc-800 text-white rounded-br-sm'
-                          : 'bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-bl-sm'
+                      className={`rounded-2xl cursor-pointer touch-highlight ${
+                        msg.type === 'image'
+                          ? 'overflow-hidden'
+                          : `px-3.5 py-2.5 text-[14px] leading-relaxed ${
+                              isMe
+                                ? 'bg-zinc-800 text-white rounded-br-sm'
+                                : 'bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-bl-sm'
+                            }`
                       }`}
                     >
-                      {msg.content}
+                      {msg.type === 'image' ? (
+                        <img
+                          src={msg.content}
+                          alt=""
+                          className="max-w-[200px] max-h-[260px] rounded-2xl object-cover"
+                          onClick={(e) => { e.stopPropagation(); setImagePreview(msg.content) }}
+                        />
+                      ) : msg.type === 'voice' ? (
+                        <VoiceMessage src={msg.content} isMe={isMe} />
+                      ) : (
+                        msg.content
+                      )}
                     </div>
 
 
@@ -1617,7 +1765,44 @@ export default function LiveChat() {
       </AnimatePresence>
 
       {/* Input */}
-      <div className={`flex items-center gap-2.5 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t transition-colors duration-300 ${sendFlash ? 'border-zinc-700 bg-zinc-900/50' : 'border-zinc-900'}`}>
+      <div className={`flex items-center gap-2 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t transition-colors duration-300 ${sendFlash ? 'border-zinc-700 bg-zinc-900/50' : 'border-zinc-900'}`}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleImageSelect}
+        />
+        {/* Image button */}
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="w-8 h-8 flex items-center justify-center rounded-full text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors disabled:opacity-30"
+        >
+          <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="3" strokeLinecap="round" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <path d="M21 15l-5-5L5 21" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        {/* Voice button */}
+        <button
+          onMouseDown={startRecording}
+          onMouseUp={stopRecording}
+          onMouseLeave={stopRecording}
+          onTouchStart={startRecording}
+          onTouchEnd={stopRecording}
+          disabled={uploading}
+          className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-30 ${
+            isRecording ? 'bg-red-500/20 text-red-400' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'
+          }`}
+        >
+          <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <rect x="9" y="2" width="6" height="12" rx="3" />
+            <path d="M5 10a7 7 0 0014 0M12 18v4M8 22h8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+
         <div className="relative flex-1">
           {input.trim() && (
             <div
@@ -1629,15 +1814,16 @@ export default function LiveChat() {
             value={input}
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); handleSend() } }}
-            placeholder="说点什么..."
-            className="relative w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-full text-[14px] text-white placeholder:text-zinc-600 outline-none focus:border-zinc-700 transition-colors"
+            placeholder={isRecording ? '松开发送语音...' : uploading ? '上传中...' : '说点什么...'}
+            disabled={isRecording}
+            className="relative w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-full text-[14px] text-white placeholder:text-zinc-600 outline-none focus:border-zinc-700 transition-colors disabled:opacity-50"
           />
         </div>
         <motion.button
           onClick={handleSend}
-          disabled={!input.trim()}
+          disabled={!input.trim() || uploading}
           whileTap={{ scale: 0.85 }}
-          className="relative w-9 h-9 rounded-full bg-white flex items-center justify-center disabled:opacity-20 transition-opacity"
+          className="relative w-9 h-9 rounded-full bg-white flex items-center justify-center disabled:opacity-20 transition-opacity flex-shrink-0"
         >
           {sendFlash && (
             <div className="absolute inset-0 rounded-full bg-white/30 animate-connection-ring pointer-events-none" />
@@ -1647,6 +1833,21 @@ export default function LiveChat() {
           </svg>
         </motion.button>
       </div>
+
+      {/* Image Preview Modal */}
+      <AnimatePresence>
+        {imagePreview && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+            onClick={() => setImagePreview(null)}
+          >
+            <img src={imagePreview} alt="" className="max-w-[90vw] max-h-[80vh] object-contain rounded-lg" />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Share Modal */}
       <AnimatePresence>

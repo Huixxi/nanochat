@@ -1,9 +1,10 @@
 import json
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import socketio
 
-from routers import auth, users, personas, conversations, ai_chat, invites, match, moderation, circles, plaza
+from routers import auth, users, personas, conversations, ai_chat, invites, match, moderation, circles, plaza, upload
 from models.database import Base, engine, SessionLocal
 from services.chat import AI_PERSONAS, stream_ai_response, save_message
 
@@ -41,6 +42,12 @@ app.include_router(match.router, prefix="/api/match", tags=["match"])
 app.include_router(moderation.router, prefix="/api/moderation", tags=["moderation"])
 app.include_router(circles.router, prefix="/api/circles", tags=["circles"])
 app.include_router(plaza.router, prefix="/api/plaza", tags=["plaza"])
+app.include_router(upload.router, prefix="/api/upload", tags=["upload"])
+
+import os
+_uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
+os.makedirs(_uploads_dir, exist_ok=True)
+app.mount("/api/uploads", StaticFiles(directory=_uploads_dir), name="uploads")
 
 socket_app = socketio.ASGIApp(sio, other_asgi_app=app)
 

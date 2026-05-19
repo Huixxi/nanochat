@@ -128,6 +128,21 @@ export async function getAIImpression(answers: Record<string, string>): Promise<
   }
 }
 
+// --- File Upload ---
+
+export async function uploadFile(file: File): Promise<{ url: string; type: string }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const token = getToken()
+  const res = await fetch(`${API_BASE}/api/upload`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  })
+  if (!res.ok) throw new Error((await res.json()).detail || 'Upload failed')
+  return res.json()
+}
+
 // --- Conversations ---
 
 export async function getConversations() {
