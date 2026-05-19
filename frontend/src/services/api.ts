@@ -128,6 +128,20 @@ export async function getAIImpression(answers: Record<string, string>): Promise<
   }
 }
 
+export async function suggestReply(messages: { role: string; content: string }[]): Promise<string> {
+  try {
+    const res = await fetch(`${API_BASE}/api/ai/suggest-reply`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ messages }),
+    })
+    const data = await res.json()
+    return data.reply || ''
+  } catch {
+    return ''
+  }
+}
+
 // --- File Upload ---
 
 export async function uploadFile(file: File): Promise<{ url: string; type: string }> {

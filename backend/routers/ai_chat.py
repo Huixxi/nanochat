@@ -93,3 +93,51 @@ async def chat_sync(req: ChatRequest, db: Session = Depends(get_db)):
         save_message(db, req.conversation_id, None, full_response)
 
     return {"response": full_response, "persona_id": req.persona_id}
+
+
+class SuggestReplyRequest(BaseModel):
+    messages: List[dict] = []
+
+
+@router.post("/suggest-reply")
+async def suggest_reply(req: SuggestReplyRequest):
+    """Generate a suggested reply based on conversation context."""
+    from services.chat import AI_PROVIDER, AI_API_KEY, AI_MODEL, AI_MODEL_CLOUD, AI_API_BASE, OLLAMA_URL
+    import json as _json
+    import httpx
+
+    system_prompt = (
+        "你正在帮用户在社交对话中回复对方。根据对话上下文，生成一条自然、简短（1-2句）的回复。"
+        "匹配对话的语气和深度，像朋友之间聊天一样。只输出回复内容，不要加引号、不要解释。"
+    )
+
+    messages = [{"role": "system", "content": system_prompt}]
+    for msg in req.messages[-10:]:
+        messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+
+    if AI_PROVIDER == "openai" and AI_API_KEY:
+        headers = {"Authorization": f"Bearer {AI_API_KEY}", "Content-Type": "application/json"}
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                response = await client.post(
+                    f"{AI_API_BASE}/chat/completions",
+                    headers=headers,
+                    json={"model": AI_MODEL_CLOUD, "messages": messages, "max_tokens": 100, "temperature": 0.8},
+                )
+                data = response.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                return {"reply": content.strip()}
+            except Exception:
+                return {"reply": ""}
+    else:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                response = await client.post(
+                    f"{OLLAMA_URL}/api/chat",
+                    json={"model": AI_MODEL, "messages": messages, "stream": False, "options": {"num_predict": 100, "temperature": 0.8}},
+                )
+                data = response.json()
+                content = data.get("message", {}).get("content", "")
+                return {"reply": content.strip()}
+            except Exception:
+                return {"reply": ""}

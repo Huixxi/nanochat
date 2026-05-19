@@ -6,7 +6,7 @@ import AnimatedAvatar, { AvatarConfig, Emotion, HeadTilt, GazeDirection, GazeY }
 import LiveChatHighlightCard from '../components/LiveChatHighlightCard'
 import { moderateContent } from '../services/moderation'
 import ConversationShareCard from '../components/ConversationShareCard'
-import { getMessages, getConversations, markRead, sendMessage as apiSendMessage, uploadFile } from '../services/api'
+import { getMessages, getConversations, markRead, sendMessage as apiSendMessage, uploadFile, suggestReply } from '../services/api'
 import { useGlobalSocket } from '../contexts/SocketContext'
 
 interface Reaction {
@@ -366,6 +366,7 @@ export default function LiveChat() {
   const [isRecording, setIsRecording] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [aiSuggesting, setAiSuggesting] = useState(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -899,6 +900,18 @@ export default function LiveChat() {
       mediaRecorderRef.current.stop()
       setIsRecording(false)
     }
+  }
+
+  const handleAiSuggest = async () => {
+    if (messages.length === 0 || aiSuggesting) return
+    setAiSuggesting(true)
+    const history = messages.slice(-10).map((m) => ({
+      role: m.senderId === userId ? 'user' : 'assistant',
+      content: m.content,
+    }))
+    const reply = await suggestReply(history)
+    if (reply) setInput(reply)
+    setAiSuggesting(false)
   }
 
   const typingPreviewRef = useRef<ReturnType<typeof setTimeout>>()
@@ -1819,6 +1832,23 @@ export default function LiveChat() {
             className="relative w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-full text-[14px] text-white placeholder:text-zinc-600 outline-none focus:border-zinc-700 transition-colors disabled:opacity-50"
           />
         </div>
+        {/* AI suggest button — only shows when input is empty and there are messages */}
+        {!input.trim() && messages.length > 0 && (
+          <button
+            onClick={handleAiSuggest}
+            disabled={aiSuggesting}
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors flex-shrink-0 disabled:opacity-50"
+          >
+            {aiSuggesting ? (
+              <span className="w-3.5 h-3.5 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M12 2l2.4 7.2H22l-6 4.8 2.4 7.2L12 16.4l-6.4 4.8 2.4-7.2-6-4.8h7.6z" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
+        )}
+
         <motion.button
           onClick={handleSend}
           disabled={!input.trim() || uploading}
