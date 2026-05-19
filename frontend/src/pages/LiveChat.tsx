@@ -850,6 +850,37 @@ export default function LiveChat() {
     markRead(convId).catch(() => {})
   }, [convId])
 
+  // Polling fallback: fetch new messages every 3s to guarantee delivery even if WebSocket fails
+  const lastKnownMsgIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!convId) return
+    const poll = () => {
+      getMessages(convId).then((msgs) => {
+        if (!msgs || msgs.length === 0) return
+        const latestId = msgs[msgs.length - 1].id
+        if (latestId === lastKnownMsgIdRef.current) return
+        lastKnownMsgIdRef.current = latestId
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id))
+          const newMsgs = msgs
+            .filter((m: { id: string }) => !existingIds.has(m.id))
+            .filter((m: { sender_id: string }) => m.sender_id !== userId)
+            .map((m: { id: string; content: string; sender_id: string; sender_name?: string; created_at?: string }) => ({
+              id: m.id,
+              content: m.content,
+              senderId: m.sender_id,
+              senderName: m.sender_name || '',
+              time: m.created_at ? new Date(m.created_at).getTime() : Date.now(),
+            }))
+          if (newMsgs.length === 0) return prev
+          return [...prev, ...newMsgs]
+        })
+      }).catch(() => {})
+    }
+    const timer = setInterval(poll, 3000)
+    return () => clearInterval(timer)
+  }, [convId, userId])
+
   if (!user || !convId) {
     return (
       <div className="h-screen bg-black flex flex-col items-center justify-center px-6">
