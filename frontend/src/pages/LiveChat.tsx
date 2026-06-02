@@ -251,53 +251,89 @@ function detectSentiment(text: string): SentimentResult {
 function VoiceMessage({ src, isMe }: { src: string; isMe: boolean }) {
   const [playing, setPlaying] = useState(false)
   const [duration, setDuration] = useState(0)
+  const [progress, setProgress] = useState(0)
   const audioRef = useRef<HTMLAudioElement>(null)
+  const rafRef = useRef<number>(0)
 
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
     const onLoaded = () => setDuration(Math.ceil(audio.duration))
-    const onEnded = () => setPlaying(false)
+    const onEnded = () => { setPlaying(false); setProgress(0) }
     audio.addEventListener('loadedmetadata', onLoaded)
     audio.addEventListener('ended', onEnded)
     return () => {
       audio.removeEventListener('loadedmetadata', onLoaded)
       audio.removeEventListener('ended', onEnded)
+      cancelAnimationFrame(rafRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    if (!playing) { cancelAnimationFrame(rafRef.current); return }
+    const tick = () => {
+      const audio = audioRef.current
+      if (audio && audio.duration) setProgress(audio.currentTime / audio.duration)
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [playing])
 
   const toggle = (e: React.MouseEvent) => {
     e.stopPropagation()
     const audio = audioRef.current
     if (!audio) return
     if (playing) { audio.pause(); setPlaying(false) }
-    else { audio.play(); setPlaying(true) }
+    else { audio.play().catch(() => {}); setPlaying(true) }
   }
 
+  const bars = [0.4, 0.7, 0.5, 0.9, 0.6, 0.8, 0.3, 0.7, 0.5, 0.8, 0.4, 0.6]
+
   return (
-    <div className={`flex items-center gap-2 min-w-[120px] ${isMe ? 'bg-zinc-800 text-white' : 'bg-zinc-900 border border-zinc-800 text-zinc-300'} px-3 py-2.5 rounded-2xl ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`}>
+    <div
+      className={`flex items-center gap-2.5 min-w-[160px] max-w-[220px] px-3 py-2.5 rounded-2xl ${
+        isMe ? 'bg-zinc-800 text-white rounded-br-sm' : 'bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-bl-sm'
+      }`}
+    >
       <audio ref={audioRef} src={src} preload="metadata" />
-      <button onClick={toggle} className="w-7 h-7 flex items-center justify-center rounded-full bg-white/10 flex-shrink-0">
+      <button onClick={toggle} className={`w-8 h-8 flex items-center justify-center rounded-full flex-shrink-0 transition-colors ${playing ? 'bg-white/20' : 'bg-white/10'}`}>
         {playing ? (
-          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>
         ) : (
-          <svg className="w-3 h-3 ml-0.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+          <svg className="w-3.5 h-3.5 ml-0.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
         )}
       </button>
-      <div className="flex-1 flex items-center gap-1.5">
-        {[...Array(8)].map((_, i) => (
+      <div className="flex-1 flex flex-col gap-1.5">
+        <div className="flex items-end gap-[2px] h-[18px]">
+          {bars.map((h, i) => {
+            const filled = progress > i / bars.length
+            return (
+              <div
+                key={i}
+                className="w-[2.5px] rounded-full transition-all duration-150"
+                style={{
+                  height: `${6 + h * 12}px`,
+                  background: filled ? (isMe ? '#e4e4e7' : '#a1a1aa') : (isMe ? '#52525b' : '#3f3f46'),
+                  opacity: playing && filled ? 1 : 0.7,
+                }}
+              />
+            )
+          })}
+        </div>
+        <div className="h-[2px] bg-white/5 rounded-full overflow-hidden">
           <div
-            key={i}
-            className={`w-0.5 rounded-full transition-all ${playing ? 'animate-pulse' : ''}`}
+            className="h-full rounded-full transition-all duration-100"
             style={{
-              height: `${8 + Math.sin(i * 1.2) * 6}px`,
+              width: `${progress * 100}%`,
               background: isMe ? '#a1a1aa' : '#71717a',
-              animationDelay: `${i * 0.1}s`,
             }}
           />
-        ))}
+        </div>
       </div>
-      <span className="text-[11px] text-zinc-500 flex-shrink-0">{duration > 0 ? `${duration}"` : '...'}</span>
+      <span className="text-[10px] text-zinc-500 flex-shrink-0 tabular-nums">
+        {duration > 0 ? `${duration}"` : '···'}
+      </span>
     </div>
   )
 }

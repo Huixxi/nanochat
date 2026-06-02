@@ -257,7 +257,11 @@ export default function Conversations() {
                     </span>
                   </div>
                   <p className={`text-[13px] truncate ${unread > 0 ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                    {conv.last_message?.content || '开始对话'}
+                    {conv.last_message
+                      ? conv.last_message.type === 'voice' ? '[语音消息]'
+                      : conv.last_message.type === 'image' ? '[图片]'
+                      : conv.last_message.content
+                      : '开始对话'}
                   </p>
                 </div>
               </motion.button>

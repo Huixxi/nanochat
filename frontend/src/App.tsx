@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
 import Landing from './pages/Landing'
 import TabBar from './components/TabBar'
+import MessageToast from './components/MessageToast'
 import AuthGuard from './components/AuthGuard'
 import ErrorBoundary from './components/ErrorBoundary'
 import { SocketProvider } from './contexts/SocketContext'
@@ -60,6 +61,7 @@ function AnimatedRoutes() {
         </Suspense>
       </ErrorBoundary>
       {showTabBar && <TabBar />}
+      <MessageToast />
     </div>
   )
 }

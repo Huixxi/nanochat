@@ -82,6 +82,7 @@ async def list_conversations(
             "last_message": {
                 "content": last_msg.content,
                 "sender_id": last_msg.sender_id,
+                "type": last_msg.msg_type,
                 "created_at": last_msg.created_at.isoformat() if last_msg.created_at else None,
             } if last_msg else None,
             "peer": peer_info,
