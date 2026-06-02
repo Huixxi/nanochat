@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import AnimatedAvatar, { AvatarConfig, Emotion, GazeDirection, HeadTilt } from '../components/AnimatedAvatar'
 import { getAIImpression, getMe, getMyStats, getMyInviteCodes, getMyInsights } from '../services/api'
+import { matchTarot } from '../utils/tarot'
 
 interface UserData {
   nickname: string
@@ -267,45 +268,68 @@ export default function Profile() {
         </div>
         {insights.length > 0 ? (
           <div className="space-y-2">
-            {insights.map((item) => (
-              <div
-                key={item.id}
-                className="p-3.5 bg-zinc-900/50 border border-zinc-800 rounded-xl relative overflow-hidden"
-              >
+            {insights.map((item) => {
+              const tarot = matchTarot(item.content)
+              const peerCol = item.peer?.avatar_config?.hairColor || '#a1a1aa'
+              return (
                 <div
-                  className="absolute inset-0 opacity-[0.02] pointer-events-none"
-                  style={{
-                    backgroundImage: `radial-gradient(${item.peer?.avatar_config?.hairColor || '#a1a1aa'} 1px, transparent 1px)`,
-                    backgroundSize: '16px 16px',
-                  }}
-                />
-                <div className="flex items-start gap-3 relative">
-                  {item.peer?.avatar_config && (
-                    <div className="flex-shrink-0 mt-0.5">
-                      <AnimatedAvatar config={item.peer.avatar_config} size={28} emotion="happy" gaze="right" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] text-zinc-300 leading-relaxed italic">
-                      "{item.content}"
-                    </p>
-                    <div className="flex items-center gap-2 mt-2">
-                      {item.peer?.nickname && (
-                        <span className="text-[10px] text-zinc-500">与 {item.peer.nickname}</span>
-                      )}
-                      {item.created_at && (
-                        <>
-                          <div className="w-[1px] h-2 bg-zinc-800" />
-                          <span className="text-[10px] text-zinc-600">
-                            {new Date(item.created_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
-                          </span>
-                        </>
-                      )}
+                  key={item.id}
+                  className="p-3.5 bg-zinc-900/50 border border-zinc-800 rounded-xl relative overflow-hidden"
+                >
+                  <div
+                    className="absolute inset-0 opacity-[0.02] pointer-events-none"
+                    style={{
+                      backgroundImage: `radial-gradient(${peerCol} 1px, transparent 1px)`,
+                      backgroundSize: '16px 16px',
+                    }}
+                  />
+                  <div className="flex items-start gap-3 relative">
+                    {item.peer?.avatar_config && (
+                      <div className="flex-shrink-0 mt-0.5">
+                        <AnimatedAvatar config={item.peer.avatar_config} size={28} emotion="happy" gaze="right" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] text-zinc-300 leading-relaxed italic">
+                        "{item.content}"
+                      </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className="flex items-center gap-1.5">
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox={tarot.viewBox}
+                            fill="none"
+                            stroke={peerCol}
+                            strokeWidth="1"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="opacity-40"
+                          >
+                            <path d={tarot.svgPath} />
+                          </svg>
+                          <span className="text-[9px] text-zinc-600">{tarot.name}</span>
+                        </div>
+                        {item.peer?.nickname && (
+                          <>
+                            <div className="w-[1px] h-2 bg-zinc-800" />
+                            <span className="text-[10px] text-zinc-500">与 {item.peer.nickname}</span>
+                          </>
+                        )}
+                        {item.created_at && (
+                          <>
+                            <div className="w-[1px] h-2 bg-zinc-800" />
+                            <span className="text-[10px] text-zinc-600">
+                              {new Date(item.created_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <div className="p-4 bg-zinc-900/30 border border-zinc-800/50 rounded-xl text-center">

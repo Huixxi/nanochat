@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import html2canvas from 'html2canvas'
 import AnimatedAvatar, { AvatarConfig, Emotion, HeadTilt, GazeDirection, GazeY } from '../components/AnimatedAvatar'
 import LiveChatHighlightCard from '../components/LiveChatHighlightCard'
+import ThoughtCard from '../components/ThoughtCard'
 import { moderateContent } from '../services/moderation'
 import ConversationShareCard from '../components/ConversationShareCard'
 import { getMessages, getConversations, markRead, sendMessage as apiSendMessage, uploadFile, suggestReply, generateInsight, getConversationInsight } from '../services/api'
@@ -398,8 +399,12 @@ export default function LiveChat() {
   const [connectionSpark, setConnectionSpark] = useState(false)
   const [milestoneLabel, setMilestoneLabel] = useState<string | null>(null)
   const [moderationWarning, setModerationWarning] = useState<string | null>(null)
-  const [shareCardType, setShareCardType] = useState<'highlight' | 'conversation'>('conversation')
+  const [shareCardType, setShareCardType] = useState<'highlight' | 'conversation' | 'thought'>('thought')
   const [isRecording, setIsRecording] = useState(false)
+  const [deepSpaceBg, setDeepSpaceBg] = useState(false)
+  const [thoughtResonance, setThoughtResonance] = useState<string | null>(null)
+  const [, setAvatarPeek] = useState<'left' | 'right' | null>(null)
+  const chatStartTimeRef = useRef(Date.now())
   const [uploading, setUploading] = useState(false)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [aiSuggesting, setAiSuggesting] = useState(false)
@@ -746,6 +751,65 @@ export default function LiveChat() {
   const connectionScoreShown = useRef(false)
   const [suggestions, setSuggestions] = useState<string[]>([])
   const suggestionTimerRef = useRef<ReturnType<typeof setTimeout>>()
+
+  // Easter egg: deep space background after 30 min of chatting
+  useEffect(() => {
+    if (messages.length < 2) return
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - chatStartTimeRef.current
+      if (elapsed > 30 * 60 * 1000 && !deepSpaceBg) setDeepSpaceBg(true)
+    }, 30000)
+    return () => clearInterval(timer)
+  }, [messages.length, deepSpaceBg])
+
+  // Easter egg: thought resonance — detect when both sides use the same meaningful word
+  useEffect(() => {
+    if (messages.length < 4) return
+    const recent = messages.slice(-6)
+    const myMsgs = recent.filter(m => m.senderId === userId)
+    const peerMsgs = recent.filter(m => m.senderId !== userId)
+    if (myMsgs.length === 0 || peerMsgs.length === 0) return
+
+    const extractWords = (text: string) => text.match(/[一-鿿]{2,}/g) || []
+    const myWords = new Set(myMsgs.flatMap(m => extractWords(m.content)))
+    const peerWords = new Set(peerMsgs.flatMap(m => extractWords(m.content)))
+
+    const trivial = new Set(['什么', '这个', '那个', '可以', '没有', '不是', '知道', '觉得', '但是', '因为', '所以', '就是', '还是', '已经', '怎么', '一个', '我们', '他们', '自己', '时候'])
+    for (const word of myWords) {
+      if (peerWords.has(word) && !trivial.has(word) && word.length >= 2) {
+        setThoughtResonance(word)
+        setPeerEmotion('surprised')
+        setMeEmotion('surprised')
+        setTimeout(() => { setPeerEmotion('happy'); setMeEmotion('happy') }, 600)
+        setTimeout(() => {
+          setPeerEmotion('neutral'); setMeEmotion('neutral')
+          setThoughtResonance(null)
+        }, 3500)
+        break
+      }
+    }
+  }, [messages.length, userId])
+
+  // Easter egg: long-press avatar — peer avatar "looks at you"
+  const handleAvatarLongPress = (side: 'left' | 'right') => {
+    setAvatarPeek(side)
+    if (side === 'left') {
+      setPeerGaze('right')
+      setPeerEmotion('happy')
+      setPeerTilt('nod')
+    } else {
+      setMeGaze('left')
+      setMeEmotion('happy')
+      setMeTilt('nod')
+    }
+    setTimeout(() => {
+      setAvatarPeek(null)
+      setPeerGaze('center'); setMeGaze('center')
+      setPeerEmotion('neutral'); setMeEmotion('neutral')
+      setPeerTilt('none'); setMeTilt('none')
+    }, 2000)
+  }
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout>>()
 
   useEffect(() => {
     if (conversationDepth >= 8 && !connectionScoreShown.current && messages.length >= 8) {
@@ -1133,7 +1197,37 @@ export default function LiveChat() {
   const topic = messages.length >= 3 ? detectTopic(messages) : null
 
   return (
-    <div className="h-screen flex flex-col bg-black">
+    <div className={`h-screen flex flex-col transition-colors duration-[10000ms] ${deepSpaceBg ? 'bg-[#020209]' : 'bg-black'}`}>
+      {/* Deep space ambient — easter egg after 30 min */}
+      {deepSpaceBg && (
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-30 transition-opacity duration-[5000ms]">
+          <div className="absolute top-[15%] left-[10%] w-[300px] h-[300px] rounded-full blur-[100px]" style={{ background: `radial-gradient(circle, ${currentPeer.avatar.hairColor}08 0%, transparent 70%)` }} />
+          <div className="absolute bottom-[20%] right-[10%] w-[250px] h-[250px] rounded-full blur-[80px]" style={{ background: `radial-gradient(circle, ${currentUser.avatar.hairColor}06 0%, transparent 70%)` }} />
+          <div className="absolute top-[50%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full blur-[120px] bg-[#0a0a2e08]" />
+        </div>
+      )}
+
+      {/* Thought resonance flash — easter egg */}
+      <AnimatePresence>
+        {thoughtResonance && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.5 }}
+            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2"
+          >
+            <div className="absolute -inset-20 rounded-full blur-3xl opacity-10" style={{ background: `radial-gradient(circle, ${currentPeer.avatar.hairColor} 0%, ${currentUser.avatar.hairColor} 50%, transparent 70%)` }} />
+            <span className="text-[10px] text-zinc-500 tracking-[6px] uppercase">思想共振</span>
+            <span className="text-[20px] text-zinc-300 font-light">{thoughtResonance}</span>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="w-1 h-1 rounded-full animate-ping" style={{ background: currentPeer.avatar.hairColor }} />
+              <div className="w-8 h-[0.5px] bg-zinc-700" />
+              <div className="w-1 h-1 rounded-full animate-ping" style={{ background: currentUser.avatar.hairColor, animationDelay: '0.3s' }} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <div className="flex items-center px-4 pt-3 pb-1">
         <button onClick={() => navigate(-1)} className="text-zinc-500 text-sm">&larr; 返回</button>
@@ -1299,6 +1393,10 @@ export default function LiveChat() {
               }}
               transition={{ type: 'spring', stiffness: 300, damping: 20 }}
               className="flex flex-col items-center"
+              onTouchStart={() => { longPressTimerRef.current = setTimeout(() => handleAvatarLongPress('left'), 800) }}
+              onTouchEnd={() => clearTimeout(longPressTimerRef.current)}
+              onMouseDown={() => { longPressTimerRef.current = setTimeout(() => handleAvatarLongPress('left'), 800) }}
+              onMouseUp={() => clearTimeout(longPressTimerRef.current)}
             >
               <div className="relative">
                 {/* Idle breathing glow — always present */}
@@ -1463,6 +1561,10 @@ export default function LiveChat() {
               }}
               transition={{ type: 'spring', stiffness: 300, damping: 20 }}
               className="flex flex-col items-center"
+              onTouchStart={() => { longPressTimerRef.current = setTimeout(() => handleAvatarLongPress('right'), 800) }}
+              onTouchEnd={() => clearTimeout(longPressTimerRef.current)}
+              onMouseDown={() => { longPressTimerRef.current = setTimeout(() => handleAvatarLongPress('right'), 800) }}
+              onMouseUp={() => clearTimeout(longPressTimerRef.current)}
             >
               <div className="relative">
                 {/* Idle breathing glow */}
@@ -2024,6 +2126,14 @@ export default function LiveChat() {
               {/* Card type switcher */}
               <div className="flex items-center gap-2 mb-3">
                 <button
+                  onClick={() => setShareCardType('thought')}
+                  className={`px-3 py-1.5 rounded-full text-[11px] transition-colors ${
+                    shareCardType === 'thought' ? 'bg-white text-black' : 'bg-zinc-900 text-zinc-400 border border-zinc-800'
+                  }`}
+                >
+                  思想卡片
+                </button>
+                <button
                   onClick={() => setShareCardType('conversation')}
                   className={`px-3 py-1.5 rounded-full text-[11px] transition-colors ${
                     shareCardType === 'conversation' ? 'bg-white text-black' : 'bg-zinc-900 text-zinc-400 border border-zinc-800'
@@ -2041,7 +2151,22 @@ export default function LiveChat() {
                 </button>
               </div>
               <div ref={highlightRef} className="rounded-2xl overflow-hidden border border-zinc-800/50">
-                {shareCardType === 'conversation' ? (
+                {shareCardType === 'thought' ? (
+                  <ThoughtCard
+                    quote={insight?.content || (() => {
+                      const good = messages.filter((m) => m.content.length > 8 && m.content.length < 80)
+                      if (good.length === 0) return '一次有深度的对话'
+                      return good.reduce((best, m) => m.content.length > best.content.length ? m : best).content
+                    })()}
+                    avatarA={currentPeer.avatar}
+                    avatarB={currentUser.avatar}
+                    nameA={currentPeer.name}
+                    nameB={currentUser.name}
+                    depth={conversationDepth}
+                    messages={messages}
+                    inviteCode={storedUser?.invite_code || ''}
+                  />
+                ) : shareCardType === 'conversation' ? (
                   <ConversationShareCard
                     avatarA={currentPeer.avatar}
                     avatarB={currentUser.avatar}
