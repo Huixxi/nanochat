@@ -332,7 +332,7 @@ function VoiceMessage({ src, isMe }: { src: string; isMe: boolean }) {
         </div>
       </div>
       <span className="text-[10px] text-zinc-500 flex-shrink-0 tabular-nums">
-        {duration > 0 ? `${duration}"` : '···'}
+        {isFinite(duration) && duration > 0 ? `${duration}"` : '···'}
       </span>
     </div>
   )
@@ -407,6 +407,8 @@ export default function LiveChat() {
   const [insightLoading, setInsightLoading] = useState(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
+  const recordingLockRef = useRef(false)
+  const recordingStartRef = useRef(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const milestonesHit = useRef<Set<number>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -911,11 +913,13 @@ export default function LiveChat() {
   }
 
   const startRecording = async () => {
+    if (recordingLockRef.current) return
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setModerationWarning('当前环境不支持录音（需要 HTTPS）')
       setTimeout(() => setModerationWarning(null), 3000)
       return
     }
+    recordingLockRef.current = true
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
@@ -926,23 +930,28 @@ export default function LiveChat() {
       }
       recorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop())
-        const ext = mimeType === 'audio/mp4' ? 'm4a' : 'webm'
+        const elapsed = Date.now() - recordingStartRef.current
         const blob = new Blob(audioChunksRef.current, { type: mimeType })
+        if (elapsed < 500 || blob.size < 1000) return
+        const ext = mimeType === 'audio/mp4' ? 'm4a' : 'webm'
         const file = new File([blob], `voice-${Date.now()}.${ext}`, { type: mimeType })
         handleSendFile(file, 'voice')
       }
       mediaRecorderRef.current = recorder
+      recordingStartRef.current = Date.now()
       recorder.start()
       setIsRecording(true)
     } catch {
+      recordingLockRef.current = false
       setModerationWarning('无法访问麦克风，请检查权限或使用 HTTPS')
       setTimeout(() => setModerationWarning(null), 3000)
     }
   }
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    if (mediaRecorderRef.current && recordingLockRef.current) {
       mediaRecorderRef.current.stop()
+      recordingLockRef.current = false
       setIsRecording(false)
     }
   }
@@ -1916,11 +1925,11 @@ export default function LiveChat() {
         </button>
         {/* Voice button */}
         <button
-          onMouseDown={startRecording}
-          onMouseUp={stopRecording}
-          onMouseLeave={stopRecording}
-          onTouchStart={startRecording}
-          onTouchEnd={stopRecording}
+          onTouchStart={(e) => { e.preventDefault(); startRecording() }}
+          onTouchEnd={(e) => { e.preventDefault(); stopRecording() }}
+          onMouseDown={() => startRecording()}
+          onMouseUp={() => stopRecording()}
+          onMouseLeave={() => stopRecording()}
           disabled={uploading}
           className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-30 ${
             isRecording ? 'bg-red-500/20 text-red-400' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'

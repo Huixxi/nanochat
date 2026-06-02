@@ -96,12 +96,40 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  // Polling fallback: fetch unread counts from API periodically
+  const clearedConvsRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    const token = getToken()
+    if (!token) return
+    const poll = () => {
+      getConversations().then(convs => {
+        setUnreadByConv(prev => {
+          const merged = { ...prev }
+          convs.forEach((c: { id: string; unread?: number }) => {
+            if (clearedConvsRef.current.has(c.id)) return
+            const apiCount = c.unread || 0
+            if (apiCount > 0) {
+              merged[c.id] = Math.max(merged[c.id] || 0, apiCount)
+            }
+          })
+          return merged
+        })
+      }).catch(() => {})
+    }
+    poll()
+    const timer = setInterval(poll, 10000)
+    return () => clearInterval(timer)
+  }, [])
+
   const clearUnread = useCallback((convId: string) => {
+    clearedConvsRef.current.add(convId)
     setUnreadByConv(prev => {
       const next = { ...prev }
       delete next[convId]
       return next
     })
+    setTimeout(() => clearedConvsRef.current.delete(convId), 15000)
   }, [])
 
   const joinRoom = useCallback((conversationId: string) => {
