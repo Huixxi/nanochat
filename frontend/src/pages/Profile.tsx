@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import AnimatedAvatar, { AvatarConfig, Emotion, GazeDirection, HeadTilt } from '../components/AnimatedAvatar'
-import { getAIImpression, getMe, getMyStats, getMyInviteCodes } from '../services/api'
+import { getAIImpression, getMe, getMyStats, getMyInviteCodes, getMyInsights } from '../services/api'
 
 interface UserData {
   nickname: string
@@ -69,6 +69,8 @@ export default function Profile() {
   const [impressionLoading, setImpressionLoading] = useState(false)
   const [stats, setStats] = useState({ conversations: 0, circles: 0, invited: 0 })
   const [inviteCode, setInviteCode] = useState('')
+  const [insights, setInsights] = useState<Array<{ id: string; content: string; created_at: string; peer: { user_id: string; nickname: string; avatar_config: any } | null }>>([])
+
 
   useEffect(() => {
     const stored = localStorage.getItem('uchat_user')
@@ -79,6 +81,7 @@ export default function Profile() {
 
   useEffect(() => {
     getMyStats().then(data => setStats(data)).catch(() => {})
+    getMyInsights().then(data => setInsights(data)).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -249,6 +252,68 @@ export default function Profile() {
         <MiniGraph color={col} />
       </motion.div>
 
+      {/* 思想轨迹 */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.22 }}
+        className="mb-8"
+      >
+        <div className="flex items-center gap-2 mb-3 px-1">
+          <svg className="w-3.5 h-3.5 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round" />
+          </svg>
+          <p className="text-[10px] text-zinc-500 uppercase tracking-widest">思想轨迹</p>
+        </div>
+        {insights.length > 0 ? (
+          <div className="space-y-2">
+            {insights.map((item) => (
+              <div
+                key={item.id}
+                className="p-3.5 bg-zinc-900/50 border border-zinc-800 rounded-xl relative overflow-hidden"
+              >
+                <div
+                  className="absolute inset-0 opacity-[0.02] pointer-events-none"
+                  style={{
+                    backgroundImage: `radial-gradient(${item.peer?.avatar_config?.hairColor || '#a1a1aa'} 1px, transparent 1px)`,
+                    backgroundSize: '16px 16px',
+                  }}
+                />
+                <div className="flex items-start gap-3 relative">
+                  {item.peer?.avatar_config && (
+                    <div className="flex-shrink-0 mt-0.5">
+                      <AnimatedAvatar config={item.peer.avatar_config} size={28} emotion="happy" gaze="right" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] text-zinc-300 leading-relaxed italic">
+                      "{item.content}"
+                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      {item.peer?.nickname && (
+                        <span className="text-[10px] text-zinc-500">与 {item.peer.nickname}</span>
+                      )}
+                      {item.created_at && (
+                        <>
+                          <div className="w-[1px] h-2 bg-zinc-800" />
+                          <span className="text-[10px] text-zinc-600">
+                            {new Date(item.created_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-4 bg-zinc-900/30 border border-zinc-800/50 rounded-xl text-center">
+            <p className="text-[12px] text-zinc-600 italic">更多深度对话，更丰富的思想轨迹</p>
+          </div>
+        )}
+      </motion.div>
+
       {/* Actions */}
       <div className="space-y-3 max-w-[300px] mx-auto">
         <motion.button
@@ -386,6 +451,17 @@ export default function Profile() {
           <span className="text-[10px] text-zinc-600">信任链扩展中</span>
         </div>
       </motion.div>
+      {/* ICP Filing */}
+      <div className="mt-6 pb-4 text-center">
+        <a
+          href="https://beian.miit.gov.cn/"
+          target="_blank"
+          rel="nofollow noreferrer"
+          className="text-[10px] text-zinc-700 hover:text-zinc-500 transition-colors"
+        >
+          京ICP备2026030869号-1
+        </a>
+      </div>
     </div>
   )
 }

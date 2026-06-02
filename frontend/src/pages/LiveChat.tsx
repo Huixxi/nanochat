@@ -6,7 +6,7 @@ import AnimatedAvatar, { AvatarConfig, Emotion, HeadTilt, GazeDirection, GazeY }
 import LiveChatHighlightCard from '../components/LiveChatHighlightCard'
 import { moderateContent } from '../services/moderation'
 import ConversationShareCard from '../components/ConversationShareCard'
-import { getMessages, getConversations, markRead, sendMessage as apiSendMessage, uploadFile, suggestReply } from '../services/api'
+import { getMessages, getConversations, markRead, sendMessage as apiSendMessage, uploadFile, suggestReply, generateInsight, getConversationInsight } from '../services/api'
 import { useGlobalSocket } from '../contexts/SocketContext'
 
 interface Reaction {
@@ -367,6 +367,8 @@ export default function LiveChat() {
   const [uploading, setUploading] = useState(false)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [aiSuggesting, setAiSuggesting] = useState(false)
+  const [insight, setInsight] = useState<{ id: string; content: string } | null>(null)
+  const [insightLoading, setInsightLoading] = useState(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -909,6 +911,19 @@ export default function LiveChat() {
     }
   }
 
+  const handleGenerateInsight = async () => {
+    if (insightLoading || insight) return
+    setInsightLoading(true)
+    try {
+      const data = await generateInsight(convId)
+      if (data) setInsight({ id: data.id, content: data.content })
+    } catch {
+      setModerationWarning('对话还不够深入，至少需要6条消息')
+      setTimeout(() => setModerationWarning(null), 3000)
+    }
+    setInsightLoading(false)
+  }
+
   const handleAiSuggest = async () => {
     if (messages.length === 0 || aiSuggesting) return
     setAiSuggesting(true)
@@ -1000,6 +1015,9 @@ export default function LiveChat() {
       }
     }).catch(() => {})
     markRead(convId).catch(() => {})
+    getConversationInsight(convId).then((data) => {
+      if (data) setInsight({ id: data.id, content: data.content })
+    }).catch(() => {})
   }, [convId])
 
   // Polling fallback: fetch new messages every 3s to guarantee delivery even if WebSocket fails
@@ -1098,22 +1116,46 @@ export default function LiveChat() {
             )}
           </AnimatePresence>
         </div>
-        <AnimatePresence>
-          {messages.length >= 2 && (
-            <motion.button
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setShowShareModal(true)}
-              className="w-8 h-8 flex items-center justify-center rounded-full border border-zinc-800 hover:border-zinc-700 transition-colors"
-            >
-              <svg className="w-3.5 h-3.5 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </motion.button>
-          )}
-        </AnimatePresence>
+        <div className="flex items-center gap-1.5">
+          <AnimatePresence>
+            {messages.length >= 6 && !insight && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={handleGenerateInsight}
+                disabled={insightLoading}
+                className="h-7 flex items-center gap-1 px-2.5 rounded-full border border-zinc-800 hover:border-zinc-700 transition-colors text-zinc-500 disabled:opacity-50"
+              >
+                {insightLoading ? (
+                  <span className="w-3 h-3 border border-zinc-500 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round" />
+                  </svg>
+                )}
+                <span className="text-[10px]">提炼</span>
+              </motion.button>
+            )}
+          </AnimatePresence>
+          <AnimatePresence>
+            {messages.length >= 2 && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setShowShareModal(true)}
+                className="w-8 h-8 flex items-center justify-center rounded-full border border-zinc-800 hover:border-zinc-700 transition-colors"
+              >
+                <svg className="w-3.5 h-3.5 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </motion.button>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* === Face-to-Face Stage === */}
@@ -1459,6 +1501,37 @@ export default function LiveChat() {
                 <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:300ms]" />
               </div>
               <span className="text-[10px] text-zinc-600">{currentPeer.name} 正在输入</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Insight Card */}
+      <AnimatePresence>
+        {insight && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="px-4 py-2"
+          >
+            <div className="relative p-4 bg-zinc-900/60 border border-zinc-800 rounded-2xl overflow-hidden">
+              <div
+                className="absolute inset-0 opacity-[0.03] pointer-events-none"
+                style={{
+                  backgroundImage: `radial-gradient(${currentPeer.avatar.hairColor} 1px, transparent 1px)`,
+                  backgroundSize: '16px 16px',
+                }}
+              />
+              <div className="flex items-center gap-2 mb-2 relative">
+                <svg className="w-3.5 h-3.5 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round" />
+                </svg>
+                <span className="text-[10px] text-zinc-500 uppercase tracking-widest">思想碰撞</span>
+              </div>
+              <p className="text-[13px] text-zinc-300 leading-relaxed italic relative">
+                "{insight.content}"
+              </p>
             </div>
           </motion.div>
         )}
@@ -1996,17 +2069,33 @@ export default function LiveChat() {
                     setSavingHighlight(true)
                     setHighlightSaved(false)
                     try {
-                      const canvas = await html2canvas(highlightRef.current, { backgroundColor: '#000', scale: 2 })
-                      const link = document.createElement('a')
-                      link.download = `uchat-live-${currentPeer.name}.png`
-                      link.href = canvas.toDataURL('image/png')
-                      link.click()
+                      const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 12000))
+                      const canvas = await Promise.race([
+                        html2canvas(highlightRef.current, { backgroundColor: '#000', scale: 2, useCORS: true, logging: false }),
+                        timeout,
+                      ])
+                      const dataUrl = canvas.toDataURL('image/png')
+                      const blob = await (await fetch(dataUrl)).blob()
+                      const file = new File([blob], `uchat-live-${currentPeer.name}.png`, { type: 'image/png' })
+
+                      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+                        await navigator.share({ files: [file] }).catch(() => {})
+                      } else {
+                        const link = document.createElement('a')
+                        link.download = file.name
+                        link.href = dataUrl
+                        link.click()
+                      }
+
                       const score = Math.min(60 + conversationDepth * 4 + messages.length, 98)
                       const inviteCode = storedUser?.invite_code || ''
                       const caption = `在 µChat 遇到了一个聊得来的人，连接指数 ${score} ✦ 一次有深度的对话胜过一百个点赞\n\n邀请码 ${inviteCode} → uchat.app`
-                      try { await navigator.clipboard.writeText(caption) } catch { /* clipboard may fail in some contexts */ }
+                      try { await navigator.clipboard.writeText(caption) } catch { /* clipboard may fail */ }
                       setHighlightSaved(true)
-                    } catch { /* ignore */ }
+                    } catch {
+                      setModerationWarning('生成图片失败，请重试')
+                      setTimeout(() => setModerationWarning(null), 3000)
+                    }
                     setSavingHighlight(false)
                   }}
                   className={`px-6 py-3 rounded-xl text-sm font-medium disabled:opacity-50 transition-all ${

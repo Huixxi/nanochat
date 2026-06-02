@@ -6,3 +6,4 @@ from .message import Message
 from .invitation import Invitation
 from .circle import Circle, CircleMember, CirclePost, CirclePostLike
 from .plaza import PlazaSnippet, PlazaSnippetLike, WeeklyTopic
+from .insight import Insight

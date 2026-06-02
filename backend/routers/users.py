@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from models.database import get_db
 from models.user import User
-from models.conversation import ConversationMember
+from models.conversation import Conversation, ConversationMember
 from models.circle import CircleMember
+from models.insight import Insight
 from services.auth import get_current_user
 
 router = APIRouter()
@@ -168,3 +169,54 @@ async def get_graph(
             edges.append({"from": d2_id, "to": d3.id, "relation": "invited"})
 
     return {"nodes": nodes, "edges": edges}
+
+
+@router.get("/me/insights")
+async def get_my_insights(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    memberships = (
+        db.query(ConversationMember)
+        .filter(ConversationMember.user_id == user.id)
+        .all()
+    )
+
+    results = []
+    for membership in memberships:
+        insight = db.query(Insight).filter(Insight.conversation_id == membership.conversation_id).first()
+        if not insight:
+            continue
+
+        conv = db.query(Conversation).filter(Conversation.id == membership.conversation_id).first()
+        if not conv or conv.type != "direct":
+            continue
+
+        peer_member = (
+            db.query(ConversationMember)
+            .filter(
+                ConversationMember.conversation_id == membership.conversation_id,
+                ConversationMember.user_id != user.id,
+            )
+            .first()
+        )
+        peer_info = None
+        if peer_member:
+            peer = db.query(User).filter(User.id == peer_member.user_id).first()
+            if peer:
+                peer_info = {
+                    "user_id": peer.id,
+                    "nickname": peer.nickname,
+                    "avatar_config": peer.avatar_config,
+                }
+
+        results.append({
+            "id": insight.id,
+            "conversation_id": insight.conversation_id,
+            "content": insight.content,
+            "peer": peer_info,
+            "created_at": insight.created_at.isoformat() if insight.created_at else None,
+        })
+
+    results.sort(key=lambda x: x["created_at"] or "", reverse=True)
+    return results

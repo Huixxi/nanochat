@@ -8,6 +8,7 @@ from models.database import get_db
 from models.conversation import Conversation, ConversationMember
 from models.message import Message
 from models.user import User
+from models.insight import Insight
 from services.auth import get_current_user
 
 router = APIRouter()
@@ -243,3 +244,123 @@ async def mark_read(
     membership.last_read_count = total
     db.commit()
     return {"read_count": total}
+
+
+@router.post("/{conversation_id}/insight")
+async def generate_insight(
+    conversation_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    membership = (
+        db.query(ConversationMember)
+        .filter(
+            ConversationMember.conversation_id == conversation_id,
+            ConversationMember.user_id == user.id,
+        )
+        .first()
+    )
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not a member")
+
+    existing = db.query(Insight).filter(Insight.conversation_id == conversation_id).first()
+    if existing:
+        return {"id": existing.id, "content": existing.content, "created_at": existing.created_at.isoformat() if existing.created_at else None}
+
+    messages = (
+        db.query(Message)
+        .filter(Message.conversation_id == conversation_id, Message.msg_type == "text")
+        .order_by(Message.created_at)
+        .all()
+    )
+    if len(messages) < 6:
+        raise HTTPException(status_code=400, detail="对话还不够深入，至少需要6条消息")
+
+    members = db.query(ConversationMember).filter(ConversationMember.conversation_id == conversation_id).all()
+    user_ids = {m.user_id for m in members}
+    names = {}
+    for uid in user_ids:
+        u = db.query(User).filter(User.id == uid).first()
+        if u:
+            names[uid] = u.nickname or "用户"
+
+    dialogue = ""
+    for m in messages[-20:]:
+        name = names.get(m.sender_id, "用户")
+        dialogue += f"{name}：{m.content}\n"
+
+    prompt = (
+        f"分析以下两人的对话，提炼出一条他们的共识或有趣的思维碰撞点。"
+        f"用一句话（20-50字），格式为'你们都认为：...'或'一个有趣的分歧：...'或'你们共同发现：...'。"
+        f"只输出这一句话，不要其他内容。\n\n{dialogue}"
+    )
+
+    import httpx
+    from services.chat import AI_PROVIDER, AI_API_KEY, AI_MODEL, AI_MODEL_CLOUD, AI_API_BASE, OLLAMA_URL
+
+    content = ""
+    if AI_PROVIDER == "openai" and AI_API_KEY:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                resp = await client.post(
+                    f"{AI_API_BASE}/chat/completions",
+                    headers={"Authorization": f"Bearer {AI_API_KEY}", "Content-Type": "application/json"},
+                    json={"model": AI_MODEL_CLOUD, "messages": [{"role": "user", "content": prompt}], "max_tokens": 100, "temperature": 0.8},
+                )
+                data = resp.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            except Exception:
+                pass
+    else:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                resp = await client.post(
+                    f"{OLLAMA_URL}/api/chat",
+                    json={"model": AI_MODEL, "messages": [{"role": "user", "content": prompt}], "stream": False, "options": {"num_predict": 100, "temperature": 0.8}},
+                )
+                data = resp.json()
+                content = data.get("message", {}).get("content", "").strip()
+            except Exception:
+                pass
+
+    if not content:
+        content = "一次有深度的思想碰撞。"
+
+    insight = Insight(conversation_id=conversation_id, content=content)
+    db.add(insight)
+    db.commit()
+    db.refresh(insight)
+
+    return {
+        "id": insight.id,
+        "content": insight.content,
+        "created_at": insight.created_at.isoformat() if insight.created_at else None,
+    }
+
+
+@router.get("/{conversation_id}/insight")
+async def get_insight(
+    conversation_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    membership = (
+        db.query(ConversationMember)
+        .filter(
+            ConversationMember.conversation_id == conversation_id,
+            ConversationMember.user_id == user.id,
+        )
+        .first()
+    )
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not a member")
+
+    existing = db.query(Insight).filter(Insight.conversation_id == conversation_id).first()
+    if not existing:
+        return None
+
+    return {
+        "id": existing.id,
+        "content": existing.content,
+        "created_at": existing.created_at.isoformat() if existing.created_at else None,
+    }

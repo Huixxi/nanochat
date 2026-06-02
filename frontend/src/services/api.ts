@@ -157,6 +157,29 @@ export async function uploadFile(file: File): Promise<{ url: string; type: strin
   return res.json()
 }
 
+// --- Insights ---
+
+export async function generateInsight(conversationId: string): Promise<{ id: string; content: string; created_at: string }> {
+  const res = await fetch(`${API_BASE}/api/conversations/${conversationId}/insight`, {
+    method: 'POST',
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error((await res.json()).detail || 'Failed to generate insight')
+  return res.json()
+}
+
+export async function getConversationInsight(conversationId: string): Promise<{ id: string; content: string; created_at: string } | null> {
+  const res = await fetch(`${API_BASE}/api/conversations/${conversationId}/insight`, { headers: authHeaders() })
+  if (!res.ok) return null
+  return res.json()
+}
+
+export async function getMyInsights(): Promise<Array<{ id: string; content: string; conversation_id: string; created_at: string; peer: { user_id: string; nickname: string; avatar_config: any } | null }>> {
+  const res = await fetch(`${API_BASE}/api/users/me/insights`, { headers: authHeaders() })
+  if (!res.ok) return []
+  return res.json()
+}
+
 // --- Conversations ---
 
 export async function getConversations() {
