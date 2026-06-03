@@ -347,11 +347,15 @@ export default function LiveChat() {
   const convId = searchParams.get('conv') || ''
   const peerState = (location.state as { peer?: { name: string; avatar: AvatarConfig; id: string } })?.peer
   const storedUser = getStoredUser()
-  const { clearUnread, lastMessage, socket: globalSocket, connected, joinRoom, sendMessage: socketSendMessage, sendTyping } = useGlobalSocket()
+  const { clearUnread, setActiveConv, socket: globalSocket, connected, joinRoom, sendMessage: socketSendMessage, sendTyping } = useGlobalSocket()
 
   useEffect(() => {
-    if (convId) clearUnread(convId)
-  }, [convId, clearUnread, lastMessage])
+    if (convId) {
+      setActiveConv(convId)
+      clearUnread(convId)
+    }
+    return () => setActiveConv(null)
+  }, [convId, setActiveConv, clearUnread])
 
   const userId = storedUser?.id || 'me'
   const user = storedUser

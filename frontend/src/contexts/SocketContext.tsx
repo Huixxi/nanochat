@@ -19,6 +19,7 @@ interface SocketContextValue {
   unreadByConv: Record<string, number>
   lastMessage: NewMessageEvent | null
   clearUnread: (convId: string) => void
+  setActiveConv: (convId: string | null) => void
   socket: Socket | null
   connected: boolean
   joinRoom: (conversationId: string) => void
@@ -31,6 +32,7 @@ const SocketContext = createContext<SocketContextValue>({
   unreadByConv: {},
   lastMessage: null,
   clearUnread: () => {},
+  setActiveConv: () => {},
   socket: null,
   connected: false,
   joinRoom: () => {},
@@ -48,6 +50,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [lastMessage, setLastMessage] = useState<NewMessageEvent | null>(null)
   const [connected, setConnected] = useState(false)
   const userIdRef = useRef('')
+  const activeConvRef = useRef<string | null>(null)
+  const clearedConvsRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     const token = getToken()
@@ -83,6 +87,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
     socket.on('new_message', (data: NewMessageEvent) => {
       if (data.sender_id === userId) return
+      if (data.conversation_id === activeConvRef.current) return
       setUnreadByConv(prev => ({
         ...prev,
         [data.conversation_id]: (prev[data.conversation_id] || 0) + 1,
@@ -97,8 +102,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   // Polling fallback: fetch unread counts from API periodically
-  const clearedConvsRef = useRef<Set<string>>(new Set())
-
   useEffect(() => {
     const token = getToken()
     if (!token) return
@@ -107,7 +110,13 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         setUnreadByConv(prev => {
           const merged = { ...prev }
           convs.forEach((c: { id: string; unread?: number }) => {
-            if (clearedConvsRef.current.has(c.id)) return
+            if (c.id === activeConvRef.current) return
+            if (clearedConvsRef.current.has(c.id)) {
+              if (!c.unread || c.unread === 0) {
+                clearedConvsRef.current.delete(c.id)
+              }
+              return
+            }
             const apiCount = c.unread || 0
             if (apiCount > 0) {
               merged[c.id] = Math.max(merged[c.id] || 0, apiCount)
@@ -122,6 +131,18 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(timer)
   }, [])
 
+  const setActiveConv = useCallback((convId: string | null) => {
+    activeConvRef.current = convId
+    if (convId) {
+      clearedConvsRef.current.add(convId)
+      setUnreadByConv(prev => {
+        const next = { ...prev }
+        delete next[convId]
+        return next
+      })
+    }
+  }, [])
+
   const clearUnread = useCallback((convId: string) => {
     clearedConvsRef.current.add(convId)
     setUnreadByConv(prev => {
@@ -129,7 +150,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       delete next[convId]
       return next
     })
-    setTimeout(() => clearedConvsRef.current.delete(convId), 15000)
   }, [])
 
   const joinRoom = useCallback((conversationId: string) => {
@@ -154,7 +174,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <SocketContext.Provider value={{
-      unreadCount, unreadByConv, lastMessage, clearUnread,
+      unreadCount, unreadByConv, lastMessage, clearUnread, setActiveConv,
       socket: socketRef.current, connected, joinRoom, sendMessage, sendTyping,
     }}>
       {children}
